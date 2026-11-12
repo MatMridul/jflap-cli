@@ -1,21 +1,21 @@
 # SRM Institute of Science and Technology
 ### Department of Computational Intelligence / Computer Science & Engineering
 ## 21CSC301T — Formal Language and Automata Theory
-### JFLAP Practical Assessment | SET 14 (Units 3–5)
+### JFLAP Practical Assessment — SET NO. 14 (Units 3–5)
 
-| Student Details | Submission Metadata |
+| Student Information | Academic & Assessment Details |
 | :--- | :--- |
 | **Student Name:** Mridul Mathur | **Course Code:** 21CSC301T |
 | **Registration / Roll No.:** RA2411026010137 | **Course Title:** Formal Language and Automata Theory |
-| **Section:** AD1 | **Question Set:** SET 14 |
-| **Assessment:** Practical Assessment / Lab Evaluation | **Total Marks:** 20 Marks (4 Questions × 5 Marks) |
+| **Section:** AD1 | **Assigned Set Number:** **SET NO. 14** |
+| **Assessment Type:** Practical / Lab Evaluation | **Total Evaluation Marks:** 20 Marks (4 Questions × 5 Marks) |
 
 ---
 
-## Index of Files & Deliverables
+## Index of Files & Deliverables (Set No. 14)
 All models have been created, inspected, and verified against JFLAP 7.1:
 
-| Question | Topic | Model Type | Submission File | Status |
+| Question (Set 14) | Topic | Model Type | Submission File | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Q1 (U3)** | $\{w w^R \mid w \in \{0, 1\}^*\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) |  Verified |
 | **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) |  Verified |
@@ -24,7 +24,7 @@ All models have been created, inspected, and verified against JFLAP 7.1:
 
 ---
 
-## Question 1 (Unit 3): CFG for Even-Length Palindromes & Parsing 1001
+## Set No. 14 — Question 1 (Unit 3): CFG for Even-Length Palindromes & Parsing 1001
 
 ### 1. Problem Statement
 Create a Context-Free Grammar (CFG) for the language $L = \{ w w^R \mid w \in \{0, 1\}^* \}$ and parse the input string `1001`. (5 Marks)
@@ -65,7 +65,7 @@ Verified via JFLAP 7.1 Headless CYK / Brute-Force Parser:
 
 ---
 
-## Question 2 (Unit 4): PDA for Nested `()`, `[]`, and `{}` Bracket Pairs
+## Set No. 14 — Question 2 (Unit 4): PDA for Nested `()`, `[]`, and `{}` Bracket Pairs
 
 ### 1. Problem Statement
 Construct a Pushdown Automaton (PDA) recognizing the Dyck language of correctly nested and matched parentheses `()`, square brackets `[]`, and curly braces `{}`. (5 Marks)
@@ -125,7 +125,7 @@ $$\begin{array}{ccllc}
 
 ---
 
-## Question 3 (Unit 4): PDA for Equal Numbers of $a$ and $b$ in Arbitrary Order
+## Set No. 14 — Question 3 (Unit 4): PDA for Equal Numbers of $a$ and $b$ in Arbitrary Order
 
 ### 1. Problem Statement
 Construct a Pushdown Automaton (PDA) for the language $L = \{ w \in \{a, b\}^* \mid N_a(w) = N_b(w) \}$, where $a$'s and $b$'s appear in arbitrary order. (5 Marks)
@@ -189,7 +189,7 @@ $$\begin{array}{ccllc}
 
 ---
 
-## Question 4 (Unit 5): Turing Machine Deciding $\{w w \mid w \in \{0, 1\}^*\}$
+## Set No. 14 — Question 4 (Unit 5): Turing Machine Deciding $\{w w \mid w \in \{0, 1\}^*\}$
 
 ### 1. Problem Statement
 Construct a Turing Machine (TM) deciding the non-context-free language $L = \{ w w \mid w \in \{0, 1\}^* \}$. (5 Marks)
