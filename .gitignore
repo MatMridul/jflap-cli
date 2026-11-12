@@ -1,0 +1,17 @@
+# Java
+*.class
+JFLAP7.1_With_Source.jar
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db

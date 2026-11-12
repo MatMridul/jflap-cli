@@ -1,0 +1,430 @@
+#!/usr/bin/env python3
+"""
+JFLAP 7.1 Model Context Protocol (MCP) Server
+Standard stdio JSON-RPC 2.0 server allowing LLMs and AI Agents to inspect,
+simulate, convert, and control JFLAP 7.1 models programmatically.
+"""
+
+import sys
+import os
+import json
+import subprocess
+from typing import Dict, Any, List
+import jflap_builder
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+JAR_PATH = os.path.join(BASE_DIR, "JFLAP7.1.jar")
+BRIDGE_CLASS = "JFLAPBridge"
+
+def ensure_environment():
+    """Ensure JFLAP7.1.jar is present and JFLAPBridge.java is compiled."""
+    if not os.path.exists(JAR_PATH):
+        print(f"[jflap-mcp] Downloading JFLAP7.1.jar...", file=sys.stderr)
+        import urllib.request
+        url = "https://www.jflap.org/jflaptmp/july27-18/JFLAP7.1.jar"
+        urllib.request.urlretrieve(url, JAR_PATH)
+        
+    class_path = os.path.join(BASE_DIR, "JFLAPBridge.class")
+    java_path = os.path.join(BASE_DIR, "JFLAPBridge.java")
+    if not os.path.exists(class_path) or (os.path.exists(java_path) and os.path.getmtime(java_path) > os.path.getmtime(class_path)):
+        cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
+        subprocess.run(["javac", "-cp", cp, java_path], check=True)
+
+def run_bridge(cmd: str, *args) -> Dict[str, Any]:
+    ensure_environment()
+    cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
+    cmd_args = ["java", "-Djava.awt.headless=true", "-cp", cp, BRIDGE_CLASS, cmd, *args]
+    try:
+        proc = subprocess.run(cmd_args, capture_output=True, text=True, check=False)
+        out = proc.stdout.strip()
+        if not out:
+            return {"error": proc.stderr.strip() or "No output from JFLAPBridge"}
+        idx = out.find("{")
+        if idx != -1:
+            return json.loads(out[idx:])
+        return {"raw_output": out, "stderr": proc.stderr}
+    except Exception as e:
+        return {"error": str(e)}
+
+# ---------------------------------------------------------------------------
+# MCP Tool Definitions
+# ---------------------------------------------------------------------------
+
+TOOLS = [
+    {
+        "name": "jflap_inspect",
+        "description": "Inspect a JFLAP 7.1 (.jff) file. Returns structure metadata, states, initial/final states, transitions, determinism, or grammar productions.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Absolute or relative path to the JFLAP .jff file"
+                }
+            },
+            "required": ["file"]
+        }
+    },
+    {
+        "name": "jflap_simulate",
+        "description": "Simulate one or more input strings on a JFLAP automaton (DFA, NFA, PDA, Turing Machine, Mealy, Moore). Returns accept/reject verdicts and output strings/final tapes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Path to the .jff file"
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of input strings to simulate (e.g. ['ab', 'aabb', ''])"
+                }
+            },
+            "required": ["file", "inputs"]
+        }
+    },
+    {
+        "name": "jflap_trace",
+        "description": "Execute a step-by-step configuration trace of an input string on an automaton. Returns the exact trace of states, remaining input, stack contents (for PDA), or tape contents (for Turing machine).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Path to the .jff file"
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Input string to trace (default empty string)"
+                }
+            },
+            "required": ["file"]
+        }
+    },
+    {
+        "name": "jflap_fsa_operation",
+        "description": "Perform Finite State Automata transformations: convert NFA to DFA ('nfa_to_dfa'), minimize a DFA ('minimize'), or verify language equivalence between two FSAs ('equals').",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["nfa_to_dfa", "minimize", "equals"],
+                    "description": "Operation to perform"
+                },
+                "input_file": {
+                    "type": "string",
+                    "description": "Primary input .jff file"
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Destination .jff file (for nfa_to_dfa and minimize)"
+                },
+                "file2": {
+                    "type": "string",
+                    "description": "Second .jff file (required for equals)"
+                }
+            },
+            "required": ["operation", "input_file"]
+        }
+    },
+    {
+        "name": "jflap_grammar_operation",
+        "description": "Execute grammar operations in JFLAP: parse a string ('parse') using CYK or Brute-force parser, or remove lambda, unit, and useless productions ('clean').",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["parse", "clean"],
+                    "description": "Grammar operation to execute"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to the grammar .jff file"
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Target string to parse (required for 'parse')"
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Destination .jff file (required for 'clean')"
+                }
+            },
+            "required": ["operation", "file"]
+        }
+    },
+    {
+        "name": "jflap_convert_model",
+        "description": "Perform cross-formalism conversion: FSA to Regular Grammar ('fsa_to_rg'), Regular Grammar to FSA ('rg_to_fsa'), CFG to PDA ('cfg_to_pda'), or PDA to CFG ('pda_to_cfg').",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversion": {
+                    "type": "string",
+                    "enum": ["fsa_to_rg", "rg_to_fsa", "cfg_to_pda", "pda_to_cfg"],
+                    "description": "Type of conversion"
+                },
+                "input_file": {
+                    "type": "string",
+                    "description": "Input model .jff file"
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Destination model .jff file"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["ll", "lr"],
+                    "description": "LL or LR mode for cfg_to_pda (default 'll')"
+                }
+            },
+            "required": ["conversion", "input_file", "output_file"]
+        }
+    },
+    {
+        "name": "jflap_create_model",
+        "description": "Programmatically generate a new JFLAP .jff file from a JSON model specification (Finite Automaton, PDA, Turing Machine, or Grammar).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "object",
+                    "description": "Model dictionary containing 'type' ('fa', 'pda', 'turing', 'grammar'), states, initial, finals, transitions/productions"
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Path where the .jff file will be saved"
+                }
+            },
+            "required": ["model", "output_file"]
+        }
+    },
+    {
+        "name": "jflap_export_dot",
+        "description": "Export an automaton to Graphviz DOT format for rendering diagrams.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Path to the .jff automaton file"
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Optional destination path for the .dot file"
+                }
+            },
+            "required": ["file"]
+        }
+    },
+    {
+        "name": "jflap_launch_gui",
+        "description": "Launch the interactive JFLAP 7.1 graphical user interface (Swing desktop window), optionally opening a .jff file.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Optional path to a .jff file to open upon launch"
+                }
+            }
+        }
+    }
+]
+
+# ---------------------------------------------------------------------------
+# Tool Execution Dispatcher
+# ---------------------------------------------------------------------------
+
+def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        if name == "jflap_inspect":
+            f = args["file"]
+            res = run_bridge("inspect", f)
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_simulate":
+            f = args["file"]
+            inputs = args.get("inputs", [""])
+            res = run_bridge("simulate", f, *inputs)
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_trace":
+            f = args["file"]
+            inp = args.get("input", "")
+            res = run_bridge("trace", f, inp)
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_fsa_operation":
+            op = args["operation"]
+            in_file = args["input_file"]
+            if op == "nfa_to_dfa":
+                out_file = args.get("output_file", in_file.replace(".jff", "_dfa.jff"))
+                res = run_bridge("nfa_to_dfa", in_file, out_file)
+            elif op == "minimize":
+                out_file = args.get("output_file", in_file.replace(".jff", "_min.jff"))
+                res = run_bridge("minimize", in_file, out_file)
+            elif op == "equals":
+                f2 = args.get("file2")
+                if not f2:
+                    return {"content": [{"type": "text", "text": "Error: 'file2' is required for 'equals' operation."}], "isError": True}
+                res = run_bridge("fsa_equals", in_file, f2)
+            else:
+                return {"content": [{"type": "text", "text": f"Unknown operation: {op}"}], "isError": True}
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_grammar_operation":
+            op = args["operation"]
+            f = args["file"]
+            if op == "parse":
+                inp = args.get("input", "")
+                res = run_bridge("grammar_parse", f, inp)
+            elif op == "clean":
+                out_file = args.get("output_file", f.replace(".jff", "_clean.jff"))
+                res = run_bridge("grammar_clean", f, out_file)
+            else:
+                return {"content": [{"type": "text", "text": f"Unknown grammar operation: {op}"}], "isError": True}
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_convert_model":
+            conv = args["conversion"]
+            in_file = args["input_file"]
+            out_file = args["output_file"]
+            mode = args.get("mode", "ll")
+            if conv == "fsa_to_rg":
+                res = run_bridge("fsa_to_rg", in_file, out_file)
+            elif conv == "rg_to_fsa":
+                res = run_bridge("rg_to_fsa", in_file, out_file)
+            elif conv == "cfg_to_pda":
+                res = run_bridge("cfg_to_pda", in_file, out_file, mode)
+            elif conv == "pda_to_cfg":
+                res = run_bridge("pda_to_cfg", in_file, out_file)
+            else:
+                return {"content": [{"type": "text", "text": f"Unknown conversion: {conv}"}], "isError": True}
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_create_model":
+            model_dict = args["model"]
+            out_file = args["output_file"]
+            jflap_builder.build_from_dict(model_dict, out_file)
+            insp = run_bridge("inspect", out_file)
+            return {"content": [{
+                "type": "text",
+                "text": f"Successfully created {out_file}.\nModel inspection:\n{json.dumps(insp, indent=2)}"
+            }]}
+
+        elif name == "jflap_export_dot":
+            f = args["file"]
+            res = run_bridge("to_dot", f)
+            dot_str = res.get("dot", "")
+            if args.get("output_file"):
+                with open(args["output_file"], "w", encoding="utf-8") as out_f:
+                    out_f.write(dot_str)
+                return {"content": [{"type": "text", "text": f"Exported DOT graph to {args['output_file']}"}]}
+            return {"content": [{"type": "text", "text": dot_str}]}
+
+        elif name == "jflap_launch_gui":
+            cmd = ["java", "-jar", JAR_PATH]
+            if args.get("file"):
+                cmd.append(args["file"])
+            subprocess.Popen(cmd)
+            return {"content": [{"type": "text", "text": f"Launched JFLAP 7.1 GUI: {' '.join(cmd)}"}]}
+
+        else:
+            return {"content": [{"type": "text", "text": f"Unknown tool: {name}"}], "isError": True}
+
+    except Exception as e:
+        return {"content": [{"type": "text", "text": f"Error executing {name}: {str(e)}"}], "isError": True}
+
+# ---------------------------------------------------------------------------
+# JSON-RPC 2.0 stdio Server Loop
+# ---------------------------------------------------------------------------
+
+def main():
+    while True:
+        try:
+            line = sys.stdin.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line:
+                continue
+
+            req = json.loads(line)
+            req_id = req.get("id")
+            method = req.get("method")
+            params = req.get("params", {})
+
+            if method == "initialize":
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {}
+                        },
+                        "serverInfo": {
+                            "name": "jflap-mcp",
+                            "version": "1.0.0"
+                        }
+                    }
+                }
+            elif method == "notifications/initialized":
+                # Acknowledgement notification, no response required
+                continue
+            elif method == "ping":
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {}
+                }
+            elif method == "tools/list":
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "tools": TOOLS
+                    }
+                }
+            elif method == "tools/call":
+                t_name = params.get("name")
+                t_args = params.get("arguments", {})
+                tool_res = call_tool(t_name, t_args)
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": tool_res
+                }
+            else:
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Method not found: {method}"
+                    }
+                }
+
+            sys.stdout.write(json.dumps(resp) + "\n")
+            sys.stdout.flush()
+
+        except json.JSONDecodeError:
+            continue
+        except Exception as e:
+            err_resp = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32603,
+                    "message": f"Internal error: {str(e)}"
+                }
+            }
+            sys.stdout.write(json.dumps(err_resp) + "\n")
+            sys.stdout.flush()
+
+if __name__ == "__main__":
+    main()

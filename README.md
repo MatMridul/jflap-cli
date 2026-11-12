@@ -1,0 +1,201 @@
+# JFLAP 7.1 CLI & Model Context Protocol (MCP) Server
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Java 1.8+](https://img.shields.io/badge/java-8+-orange.svg)](https://www.java.com/)
+[![MCP](https://img.shields.io/badge/MCP-JSON--RPC%202.0-green.svg)](https://modelcontextprotocol.io/)
+
+A complete, production-grade command-line interface and **Model Context Protocol (MCP)** server for controlling and automating **JFLAP 7.1** (`JFLAP7.1.jar`).
+
+Standard JFLAP is a legacy Java Swing application without native command-line or headless automation support. This repository bridges directly into JFLAP's internal classes (`file.XMLCodec`, `automata.*`, `grammar.*`) to provide fast, robust, headless execution, simulation, conversion, batch testing, and AI-driven control without popping up Swing dialogs.
+
+---
+
+## Table of Contents
+- [Highlights](#highlights)
+- [Quick Start](#quick-start)
+- [CLI Command Overview](#cli-command-overview)
+- [Model Context Protocol (MCP) Integration](#model-context-protocol-mcp-integration)
+- [Documentation Index](#documentation-index)
+- [Architecture & Quirks Resolved](#architecture--quirks-resolved)
+- [License & Acknowledgments](#license--acknowledgments)
+
+---
+
+## Highlights
+
+- ⚡ **Headless Execution**: Fast simulation of DFAs, NFAs, Pushdown Automata (PDA), Turing Machines (single and multi-tape), Mealy, and Moore machines.
+- 🔬 **Formal Language Transformations**:
+  - NFA $\rightarrow$ DFA conversion (`nfa-to-dfa`)
+  - DFA minimization to canonical states (`minimize`)
+  - Language Equivalence checking (`equals`) using minimization & isomorphism algorithms
+- 📝 **Grammar Parsing & Transformation**:
+  - CYK Parser for Chomsky Normal Form (CNF) with derivation tracing
+  - Brute-Force derivation parser
+  - Production cleaner (eliminates $\lambda$/$\epsilon$, unit, and useless rules)
+- 🔄 **Cross-Model Conversions**:
+  - FSA $\leftrightarrow$ Regular Grammar (Right-Linear)
+  - CFG $\rightarrow$ Pushdown Automaton (LL / LR)
+  - PDA $\rightarrow$ Context-Free Grammar (CFG)
+- 🛠️ **Programmatic Model Builder**: Create valid JFLAP `.jff` XML files via CLI flags or JSON definitions.
+- 📊 **Graphviz Export**: Export any automaton to standard Graphviz `.dot` format.
+- 🤖 **Native MCP Server**: Ready-to-use Model Context Protocol server exposing 9 tools to Claude Desktop, Antigravity, Cursor, and other agentic systems.
+
+---
+
+## Quick Start
+
+### 1. Requirements
+- **Java**: JRE/JDK 8 or higher (`java -version`).
+- **Python**: Python 3.8 or higher (`python --version`).
+
+### 2. Installation
+Clone the repository:
+```bash
+git clone https://github.com/MatMridul/jflap-cli.git
+cd jflap-cli
+```
+
+Optional: Install as a Python package to put `jflap` on your PATH:
+```bash
+pip install -e .
+```
+
+*Note: On first run, `jflap` will automatically compile the Java bridge (`JFLAPBridge.java`) if `.class` files are missing.*
+
+---
+
+## CLI Command Overview
+
+Run commands with `jflap` (or `python jflap_cli.py`):
+
+### Model Inspection
+```bash
+jflap inspect examples/contains_ab_nfa.jff
+```
+*Outputs an ASCII table showing state coordinates, initial/final flags, transition rules, and determinism.*
+
+### Batch Simulation
+```bash
+jflap simulate examples/contains_ab_nfa.jff ab aabb bab bba xyz
+```
+*Outputs:*
+```text
+Simulation Results for: contains_ab_nfa.jff
+Input String | Result  
+-------------+---------
+'ab'         | ACCEPTED
+'aabb'       | ACCEPTED
+'bab'        | ACCEPTED
+'bba'        | REJECTED
+'xyz'        | REJECTED
+```
+
+### Execution Tracing (PDA / Turing Machine)
+```bash
+# Step-by-step trace showing stack evolution on a Pushdown Automaton
+jflap trace examples/an_bn_pda.jff aabb
+
+# Step-by-step trace showing tape transformations on a Turing Machine
+jflap trace examples/an_bn_cn_turing.jff abc
+```
+
+### Equivalence Testing
+Formally prove whether a student's submission or alternative machine accepts the exact same language:
+```bash
+jflap fsa equals examples/contains_ab_nfa.jff examples/contains_ab_min_dfa.jff
+# Result: The two automata ARE EQUIVALENT (accept the exact same language).
+```
+
+### Conversions
+```bash
+# Convert NFA to DFA
+jflap fsa nfa-to-dfa examples/contains_ab_nfa.jff dfa.jff
+
+# Minimize DFA
+jflap fsa minimize dfa.jff min_dfa.jff
+
+# Convert CFG to PDA (LL Mode)
+jflap convert cfg-to-pda examples/an_bn_cfg.jff pda.jff --mode ll
+
+# Convert Regular Grammar to FSA
+jflap convert rg-to-fsa examples/regular_grammar_ab.jff fsa.jff
+```
+
+### Graphviz DOT Export
+```bash
+jflap dot examples/contains_ab_min_dfa.jff -o machine.dot
+```
+
+### Programmatic Creation
+```bash
+# Create an FSA directly
+jflap create fa --states q0,q1,q2 --initial q0 --finals q2 --transitions "q0,q1,0; q1,q2,1; q2,q2,0,1" -o parity.jff
+
+# Or build from a JSON definition
+jflap create --from-json examples/sample_spec.json -o generated.jff
+```
+
+### Official GUI Window
+```bash
+# Launch the standard JFLAP 7.1 graphical desktop interface
+jflap gui examples/contains_ab_min_dfa.jff
+```
+
+---
+
+## Model Context Protocol (MCP) Integration
+
+The built-in MCP server (`jflap_mcp.py` / `jflap mcp`) allows AI assistants to inspect, simulate, convert, and construct automata models directly.
+
+### Claude Desktop Configuration (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "jflap": {
+      "command": "python",
+      "args": ["<PATH_TO_REPO>/jflap_mcp.py"]
+    }
+  }
+}
+```
+
+### Exposed MCP Tools
+1. `jflap_inspect`: Inspect `.jff` file structure and metadata.
+2. `jflap_simulate`: Batch simulate input strings on any automaton.
+3. `jflap_trace`: Step-by-step configuration trace (state, stack, tape).
+4. `jflap_fsa_operation`: NFA $\rightarrow$ DFA, minimization, and language equivalence check.
+5. `jflap_grammar_operation`: CYK / Brute-force grammar parsing and rule cleaning.
+6. `jflap_convert_model`: Cross-formalism conversion (FSA $\leftrightarrow$ RG, CFG $\leftrightarrow$ PDA).
+7. `jflap_create_model`: Programmatically build a `.jff` file from JSON.
+8. `jflap_export_dot`: Export an automaton to Graphviz DOT.
+9. `jflap_launch_gui`: Open the model in the interactive JFLAP 7.1 desktop window.
+
+See [docs/MCP_SPECIFICATION.md](docs/MCP_SPECIFICATION.md) for full schemas and sample payloads.
+
+---
+
+## Documentation Index
+
+- [Architecture & Technical Design](docs/ARCHITECTURE.md): How the Java headless bridge works and how Swing modal blocks were neutralized.
+- [MCP Specification](docs/MCP_SPECIFICATION.md): Tool-by-tool JSON schema, request parameters, and response structures.
+- [CLI Reference Manual](docs/CLI_REFERENCE.md): Comprehensive documentation of all subcommands, arguments, and flags.
+
+---
+
+## Architecture & Quirks Resolved
+
+1. **Bypassing Embedded `JOptionPane` Dialogs**:
+   - In JFLAP's `PDAStepByStateSimulator`, the constructor pops up a modal dialog asking whether to accept by "Final State" or "Empty Stack". We engineered a `HeadlessPDASimulator` extending `AutomatonSimulator` that operates silently without GUI requirements.
+   - In `TransducerFactory`, single-tape Turing machines prompt a modal dialog asking whether to open as standard TM or Building Blocks. We preemptively detect Turing models in DOM and instantiate `TMTransducer` directly.
+2. **Infinite Loop Prevention**:
+   - Bounded BFS state exploration ensures that non-deterministic pushdown automata with $\lambda$-transitions or non-terminating Turing machines do not hang or exhaust system memory.
+3. **Automated On-Demand Build**:
+   - The CLI automatically invokes `javac` if `JFLAPBridge.class` is absent.
+
+---
+
+## License & Acknowledgments
+
+- **CLI & MCP Tooling**: Released under the [MIT License](LICENSE). Copyright (c) 2026 Mridul Mathur.
+- **JFLAP**: JFLAP 7.1 is academic software developed by Prof. Susan H. Rodger and students at Duke University. [JFLAP7.1.jar](https://www.jflap.org/) is redistributed under JFLAP's educational license.
