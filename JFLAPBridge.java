@@ -1,3 +1,5 @@
+import grammar.lsystem.*;
+import regular.RegularExpression;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
@@ -76,6 +78,18 @@ public class JFLAPBridge {
                     break;
                 case "to_dot":
                     toDot(args);
+                    break;
+                case "fsa_to_re":
+                    fsaToRe(args);
+                    break;
+                case "first_follow":
+                    firstFollow(args);
+                    break;
+                case "lsystem_expand":
+                    lsystemExpand(args);
+                    break;
+                case "combine":
+                    combineAutomata(args);
                     break;
                 default:
                     printError("Unknown command: " + command);
@@ -1074,6 +1088,174 @@ public class JFLAPBridge {
     // -------------------------------------------------------------
     // Helper: JSON escaping & error output
     // -------------------------------------------------------------
+    
+    // -------------------------------------------------------------
+    // FSA to Regular Expression
+    // -------------------------------------------------------------
+    private static void fsaToRe(String[] args) throws Exception {
+        if (args.length < 2) {
+            printError("Usage: fsa_to_re <input.jff> [output.jff]");
+            System.exit(1);
+        }
+        File inFile = new File(args[1]);
+        Serializable obj = decodeFile(inFile);
+        if (!(obj instanceof FiniteStateAutomaton)) {
+            printError("Input file is not an FSA.");
+            System.exit(1);
+        }
+        FiniteStateAutomaton fsa = (FiniteStateAutomaton) ((FiniteStateAutomaton) obj).clone();
+        FSAToRegularExpressionConverter.convertToSimpleAutomaton(fsa);
+        String re = FSAToRegularExpressionConverter.convertToRegularExpression(fsa);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"success\":true,");
+        sb.append("\"regularExpression\":\"").append(escapeJson(re)).append("\",");
+        sb.append("\"inputFile\":\"").append(escapeJson(inFile.getAbsolutePath())).append("\"");
+
+        if (args.length > 2) {
+            File outFile = new File(args[2]);
+            RegularExpression regExpr = new RegularExpression(re);
+            CODEC.encode(regExpr, outFile, null);
+            sb.append(",\"outputFile\":\"").append(escapeJson(outFile.getAbsolutePath())).append("\"");
+        }
+        sb.append("}");
+        System.out.println(sb.toString());
+    }
+
+    // -------------------------------------------------------------
+    // FIRST & FOLLOW Sets + LL(1) Check
+    // -------------------------------------------------------------
+    private static void firstFollow(String[] args) throws Exception {
+        if (args.length < 2) {
+            printError("Usage: first_follow <grammar.jff>");
+            System.exit(1);
+        }
+        File inFile = new File(args[1]);
+        Serializable obj = decodeFile(inFile);
+        if (!(obj instanceof Grammar)) {
+            printError("Input file is not a grammar.");
+            System.exit(1);
+        }
+        Grammar g = (Grammar) obj;
+        Map<String, Set<String>> first = Operations.first(g);
+        Map<String, Set<String>> follow = Operations.follow(g);
+        boolean isLL1 = false;
+        try {
+            isLL1 = Operations.isLL1(g);
+        } catch (Exception ignored) {}
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"isLL1\":").append(isLL1).append(",");
+        sb.append("\"first\":{");
+        int count = 0;
+        for (Map.Entry<String, Set<String>> e : first.entrySet()) {
+            if (count++ > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(e.getKey())).append("\":[");
+            int sc = 0;
+            for (String s : e.getValue()) {
+                if (sc++ > 0) sb.append(",");
+                sb.append("\"").append(escapeJson(s)).append("\"");
+            }
+            sb.append("]");
+        }
+        sb.append("},");
+
+        sb.append("\"follow\":{");
+        count = 0;
+        for (Map.Entry<String, Set<String>> e : follow.entrySet()) {
+            if (count++ > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(e.getKey())).append("\":[");
+            int sc = 0;
+            for (String s : e.getValue()) {
+                if (sc++ > 0) sb.append(",");
+                sb.append("\"").append(escapeJson(s)).append("\"");
+            }
+            sb.append("]");
+        }
+        sb.append("}}");
+        System.out.println(sb.toString());
+    }
+
+    // -------------------------------------------------------------
+    // L-System Expand
+    // -------------------------------------------------------------
+    private static void lsystemExpand(String[] args) throws Exception {
+        if (args.length < 2) {
+            printError("Usage: lsystem_expand <lsystem.jff> [level]");
+            System.exit(1);
+        }
+        File inFile = new File(args[1]);
+        int level = args.length > 2 ? Integer.parseInt(args[2]) : 1;
+        Serializable obj = decodeFile(inFile);
+        if (!(obj instanceof LSystem)) {
+            printError("Input file is not an L-System.");
+            System.exit(1);
+        }
+        LSystem ls = (LSystem) obj;
+        Expander exp = new Expander(ls);
+        List<String> tokens = exp.expansionForLevel(level);
+        String expanded = String.join("", tokens);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"success\":true,");
+        sb.append("\"level\":").append(level).append(",");
+        sb.append("\"length\":").append(tokens.size()).append(",");
+        sb.append("\"expandedString\":\"").append(escapeJson(expanded)).append("\"");
+        sb.append("}");
+        System.out.println(sb.toString());
+    }
+
+    // -------------------------------------------------------------
+    // Combine Two Automata
+    // -------------------------------------------------------------
+    private static void combineAutomata(String[] args) throws Exception {
+        if (args.length < 4) {
+            printError("Usage: combine <input1.jff> <input2.jff> <output.jff>");
+            System.exit(1);
+        }
+        File f1 = new File(args[1]);
+        File f2 = new File(args[2]);
+        File out = new File(args[3]);
+
+        Serializable o1 = decodeFile(f1);
+        Serializable o2 = decodeFile(f2);
+        if (!(o1 instanceof Automaton) || !(o2 instanceof Automaton)) {
+            printError("Both files must be automata.");
+            System.exit(1);
+        }
+
+        Automaton a1 = (Automaton) o1;
+        Automaton a2 = (Automaton) o2;
+        Automaton newOne = (Automaton) a1.clone();
+        int d = 250;
+        Map<State, State> otherToNew = new HashMap<>();
+        for (State s : a2.getStates()) {
+            Point p = new Point(s.getPoint() != null ? s.getPoint().x : 0, (s.getPoint() != null ? s.getPoint().y : 0) + d);
+            State s2 = newOne.createState(p);
+            if (a2.isFinalState(s)) newOne.addFinalState(s2);
+            s2.setName(s.getName() != null ? s.getName() + "_2" : "q" + s2.getID());
+            otherToNew.put(s, s2);
+        }
+        for (Transition t : a2.getTransitions()) {
+            newOne.addTransition(t.copy(otherToNew.get(t.getFromState()), otherToNew.get(t.getToState())));
+        }
+
+        CODEC.encode(newOne, out, null);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"success\":true,");
+        sb.append("\"totalStates\":").append(newOne.getStates().length).append(",");
+        sb.append("\"totalTransitions\":").append(newOne.getTransitions().length).append(",");
+        sb.append("\"outputFile\":\"").append(escapeJson(out.getAbsolutePath())).append("\"");
+        sb.append("}");
+        System.out.println(sb.toString());
+    }
+
+
     private static void printError(String msg) {
         System.err.println(msg);
         System.out.println("{\"error\":\"" + escapeJson(msg) + "\"}");

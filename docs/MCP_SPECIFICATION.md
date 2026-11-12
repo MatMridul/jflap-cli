@@ -2,7 +2,7 @@
 
 The **JFLAP MCP Server** (`jflap_mcp.py` / `jflap mcp`) implements the open [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) over standard input/output (`stdio`) using JSON-RPC 2.0.
 
-It exposes 9 specialized tools enabling AI models (like Gemini, Claude, GPT) to analyze, simulate, transform, and generate automata theory models.
+It exposes 10 specialized tools enabling AI models (like Gemini, Claude, GPT) to analyze, simulate, transform, and generate automata theory models.
 
 ---
 
@@ -13,9 +13,10 @@ It exposes 9 specialized tools enabling AI models (like Gemini, Claude, GPT) to 
 | `jflap_inspect` | Inspect structure, state table, transitions, alphabet, and determinism. |
 | `jflap_simulate` | Batch simulate input strings on any DFA, NFA, PDA, Turing Machine, Mealy, or Moore machine. |
 | `jflap_trace` | Generate a step-by-step execution trace showing states, stack, and tape changes. |
-| `jflap_fsa_operation` | Convert NFA $\rightarrow$ DFA, minimize DFA, or prove language equivalence between two FSAs. |
-| `jflap_grammar_operation` | Parse strings using CYK / Brute-force parser or clean grammar productions. |
-| `jflap_convert_model` | Cross-convert between FSA, Regular Grammar, PDA, and CFG. |
+| `jflap_fsa_operation` | Convert NFA $\rightarrow$ DFA, minimize DFA, prove language equivalence, or combine automata. |
+| `jflap_grammar_operation` | Parse strings using CYK / Brute-force parser, clean grammar rules, or compute FIRST & FOLLOW sets with LL(1) test. |
+| `jflap_convert_model` | Cross-convert between FSA $\rightarrow$ RE, FSA $\leftrightarrow$ Regular Grammar, and PDA $\leftrightarrow$ CFG. |
+| `jflap_lsystem_expand` | Expand L-System rewriting rules to a specified derivation depth. |
 | `jflap_create_model` | Programmatically create a `.jff` file from a JSON definition. |
 | `jflap_export_dot` | Export an automaton to Graphviz DOT format for visual rendering. |
 | `jflap_launch_gui` | Launch the official interactive JFLAP 7.1 Swing desktop window. |
@@ -148,7 +149,85 @@ Performs NFA-to-DFA conversion, DFA minimization, or equivalence tests.
 
 ---
 
-### 5. `jflap_create_model`
+### 5. `jflap_grammar_operation`
+Parses strings using CYK or Brute-force derivation, cleans grammar productions, or computes FIRST and FOLLOW sets with LL(1) parseability testing.
+
+**Parameters for FIRST & FOLLOW Analysis:**
+```json
+{
+  "operation": "first_follow",
+  "file": "path/to/grammar.jff"
+}
+```
+
+**Example Output:**
+```json
+{
+  "isLL1": false,
+  "first": {
+    "a": ["a"],
+    "b": ["b"],
+    "S": ["a"]
+  },
+  "follow": {
+    "S": ["b", "$"]
+  }
+}
+```
+
+---
+
+### 6. `jflap_convert_model`
+Performs cross-formalism conversion:
+- `fsa_to_re`: Extract Regular Expression from FSA
+- `fsa_to_rg`: Convert FSA to Regular Grammar
+- `rg_to_fsa`: Convert Regular Grammar to FSA
+- `cfg_to_pda`: Convert Context-Free Grammar to Pushdown Automaton
+- `pda_to_cfg`: Convert Pushdown Automaton to Context-Free Grammar
+
+**Parameters for FSA $\rightarrow$ Regular Expression:**
+```json
+{
+  "conversion": "fsa_to_re",
+  "input_file": "path/to/dfa.jff"
+}
+```
+
+**Example Output:**
+```json
+{
+  "success": true,
+  "regularExpression": "b*(aa*bb*+aa*bb*a(a+bb*a)*(?+bb*))",
+  "inputFile": "path/to/dfa.jff"
+}
+```
+
+---
+
+### 7. `jflap_lsystem_expand`
+Expands an L-System (parallel rewriting system) to a given recursion depth.
+
+**Parameters:**
+```json
+{
+  "file": "path/to/lsystem.jff",
+  "level": 4
+}
+```
+
+**Example Output:**
+```json
+{
+  "success": true,
+  "level": 4,
+  "length": 8,
+  "expandedString": "ABAABABA"
+}
+```
+
+---
+
+### 8. `jflap_create_model`
 Programmatically generates a `.jff` file from a JSON definition.
 
 **Parameters:**
@@ -175,7 +254,7 @@ Programmatically generates a `.jff` file from a JSON definition.
 
 ---
 
-### 6. `jflap_export_dot`
+### 9. `jflap_export_dot`
 Generates Graphviz DOT source code for visualization.
 
 **Parameters:**
@@ -200,6 +279,18 @@ digraph Automaton {
 
   q0 -> q1 [label="a"];
   q1 -> q1 [label="a, b"];
+}
+```
+
+---
+
+### 10. `jflap_launch_gui`
+Spawns the official interactive JFLAP 7.1 Swing desktop window, optionally pre-loading a file.
+
+**Parameters:**
+```json
+{
+  "file": "path/to/model.jff"
 }
 ```
 

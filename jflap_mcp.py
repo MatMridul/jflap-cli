@@ -104,13 +104,13 @@ TOOLS = [
     },
     {
         "name": "jflap_fsa_operation",
-        "description": "Perform Finite State Automata transformations: convert NFA to DFA ('nfa_to_dfa'), minimize a DFA ('minimize'), or verify language equivalence between two FSAs ('equals').",
+        "description": "Perform Finite State Automata transformations: convert NFA to DFA ('nfa_to_dfa'), minimize a DFA ('minimize'), verify language equivalence between two FSAs ('equals'), or combine two automata into one ('combine').",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["nfa_to_dfa", "minimize", "equals"],
+                    "enum": ["nfa_to_dfa", "minimize", "equals", "combine"],
                     "description": "Operation to perform"
                 },
                 "input_file": {
@@ -119,11 +119,11 @@ TOOLS = [
                 },
                 "output_file": {
                     "type": "string",
-                    "description": "Destination .jff file (for nfa_to_dfa and minimize)"
+                    "description": "Destination .jff file (for nfa_to_dfa, minimize, and combine)"
                 },
                 "file2": {
                     "type": "string",
-                    "description": "Second .jff file (required for equals)"
+                    "description": "Second .jff file (required for equals and combine)"
                 }
             },
             "required": ["operation", "input_file"]
@@ -131,13 +131,13 @@ TOOLS = [
     },
     {
         "name": "jflap_grammar_operation",
-        "description": "Execute grammar operations in JFLAP: parse a string ('parse') using CYK or Brute-force parser, or remove lambda, unit, and useless productions ('clean').",
+        "description": "Execute grammar operations in JFLAP: parse a string ('parse') using CYK or Brute-force parser, remove lambda, unit, and useless productions ('clean'), or compute FIRST and FOLLOW sets and test LL(1) parseability ('first_follow').",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["parse", "clean"],
+                    "enum": ["parse", "clean", "first_follow"],
                     "description": "Grammar operation to execute"
                 },
                 "file": {
@@ -158,13 +158,13 @@ TOOLS = [
     },
     {
         "name": "jflap_convert_model",
-        "description": "Perform cross-formalism conversion: FSA to Regular Grammar ('fsa_to_rg'), Regular Grammar to FSA ('rg_to_fsa'), CFG to PDA ('cfg_to_pda'), or PDA to CFG ('pda_to_cfg').",
+        "description": "Perform cross-formalism conversion: FSA to Regular Expression ('fsa_to_re'), FSA to Regular Grammar ('fsa_to_rg'), Regular Grammar to FSA ('rg_to_fsa'), CFG to PDA ('cfg_to_pda'), or PDA to CFG ('pda_to_cfg').",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "conversion": {
                     "type": "string",
-                    "enum": ["fsa_to_rg", "rg_to_fsa", "cfg_to_pda", "pda_to_cfg"],
+                    "enum": ["fsa_to_re", "fsa_to_rg", "rg_to_fsa", "cfg_to_pda", "pda_to_cfg"],
                     "description": "Type of conversion"
                 },
                 "input_file": {
@@ -173,7 +173,7 @@ TOOLS = [
                 },
                 "output_file": {
                     "type": "string",
-                    "description": "Destination model .jff file"
+                    "description": "Destination model .jff file (optional for fsa_to_re)"
                 },
                 "mode": {
                     "type": "string",
@@ -181,7 +181,25 @@ TOOLS = [
                     "description": "LL or LR mode for cfg_to_pda (default 'll')"
                 }
             },
-            "required": ["conversion", "input_file", "output_file"]
+            "required": ["conversion", "input_file"]
+        }
+    },
+    {
+        "name": "jflap_lsystem_expand",
+        "description": "Expand an L-System (Lindenmayer system) to a given recursion depth/level.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Path to the L-System .jff file"
+                },
+                "level": {
+                    "type": "integer",
+                    "description": "Recursion depth / derivation level (default 3)"
+                }
+            },
+            "required": ["file"]
         }
     },
     {
@@ -272,6 +290,12 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
                 if not f2:
                     return {"content": [{"type": "text", "text": "Error: 'file2' is required for 'equals' operation."}], "isError": True}
                 res = run_bridge("fsa_equals", in_file, f2)
+            elif op == "combine":
+                f2 = args.get("file2")
+                if not f2:
+                    return {"content": [{"type": "text", "text": "Error: 'file2' is required for 'combine' operation."}], "isError": True}
+                out_file = args.get("output_file", in_file.replace(".jff", "_combined.jff"))
+                res = run_bridge("combine", in_file, f2, out_file)
             else:
                 return {"content": [{"type": "text", "text": f"Unknown operation: {op}"}], "isError": True}
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
@@ -285,6 +309,8 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
             elif op == "clean":
                 out_file = args.get("output_file", f.replace(".jff", "_clean.jff"))
                 res = run_bridge("grammar_clean", f, out_file)
+            elif op == "first_follow":
+                res = run_bridge("first_follow", f)
             else:
                 return {"content": [{"type": "text", "text": f"Unknown grammar operation: {op}"}], "isError": True}
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
@@ -292,18 +318,34 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         elif name == "jflap_convert_model":
             conv = args["conversion"]
             in_file = args["input_file"]
-            out_file = args["output_file"]
+            out_file = args.get("output_file")
             mode = args.get("mode", "ll")
-            if conv == "fsa_to_rg":
+            if conv == "fsa_to_re":
+                res = run_bridge("fsa_to_re", in_file, out_file or "")
+            elif conv == "fsa_to_rg":
+                if not out_file:
+                    out_file = in_file.replace(".jff", "_rg.jff")
                 res = run_bridge("fsa_to_rg", in_file, out_file)
             elif conv == "rg_to_fsa":
+                if not out_file:
+                    out_file = in_file.replace(".jff", "_fsa.jff")
                 res = run_bridge("rg_to_fsa", in_file, out_file)
             elif conv == "cfg_to_pda":
+                if not out_file:
+                    out_file = in_file.replace(".jff", "_pda.jff")
                 res = run_bridge("cfg_to_pda", in_file, out_file, mode)
             elif conv == "pda_to_cfg":
+                if not out_file:
+                    out_file = in_file.replace(".jff", "_cfg.jff")
                 res = run_bridge("pda_to_cfg", in_file, out_file)
             else:
                 return {"content": [{"type": "text", "text": f"Unknown conversion: {conv}"}], "isError": True}
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_lsystem_expand":
+            f = args["file"]
+            lvl = args.get("level", 3)
+            res = run_bridge("lsystem_expand", f, str(lvl))
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
 
         elif name == "jflap_create_model":

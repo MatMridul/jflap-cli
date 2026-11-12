@@ -29,17 +29,23 @@ Standard JFLAP is a legacy Java Swing application without native command-line or
   - NFA $\rightarrow$ DFA conversion (`nfa-to-dfa`)
   - DFA minimization to canonical states (`minimize`)
   - Language Equivalence checking (`equals`) using minimization & isomorphism algorithms
+  - FSA to Regular Expression extraction (`convert fsa-to-re`)
+  - Combine multiple automata into composite machines (`fsa combine`)
 - 📝 **Grammar Parsing & Transformation**:
+  - FIRST and FOLLOW set computation with LL(1) parseability checking (`grammar first-follow`)
   - CYK Parser for Chomsky Normal Form (CNF) with derivation tracing
   - Brute-Force derivation parser
   - Production cleaner (eliminates $\lambda$/$\epsilon$, unit, and useless rules)
+- 🌿 **L-System (Lindenmayer System) Engine**:
+  - Deterministic and stochastic parallel rewriting string expansion at arbitrary derivation depth (`lsystem expand`)
 - 🔄 **Cross-Model Conversions**:
+  - FSA $\rightarrow$ Regular Expression
   - FSA $\leftrightarrow$ Regular Grammar (Right-Linear)
   - CFG $\rightarrow$ Pushdown Automaton (LL / LR)
   - PDA $\rightarrow$ Context-Free Grammar (CFG)
 - 🛠️ **Programmatic Model Builder**: Create valid JFLAP `.jff` XML files via CLI flags or JSON definitions.
 - 📊 **Graphviz Export**: Export any automaton to standard Graphviz `.dot` format.
-- 🤖 **Native MCP Server**: Ready-to-use Model Context Protocol server exposing 9 tools to Claude Desktop, Antigravity, Cursor, and other agentic systems.
+- 🤖 **Native MCP Server**: Ready-to-use Model Context Protocol server exposing 10 tools to Claude Desktop, Antigravity, Cursor, and other agentic systems.
 
 ---
 
@@ -107,7 +113,7 @@ jflap fsa equals examples/contains_ab_nfa.jff examples/contains_ab_min_dfa.jff
 # Result: The two automata ARE EQUIVALENT (accept the exact same language).
 ```
 
-### Conversions
+### Conversions & Regular Expressions
 ```bash
 # Convert NFA to DFA
 jflap fsa nfa-to-dfa examples/contains_ab_nfa.jff dfa.jff
@@ -115,11 +121,34 @@ jflap fsa nfa-to-dfa examples/contains_ab_nfa.jff dfa.jff
 # Minimize DFA
 jflap fsa minimize dfa.jff min_dfa.jff
 
+# Extract Regular Expression from FSA
+jflap convert fsa-to-re examples/contains_ab_dfa.jff
+# Output: Regular Expression: b*(aa*bb*+aa*bb*a(a+bb*a)*(?+bb*))
+
+# Combine Two Automata into One
+jflap fsa combine dfa1.jff dfa2.jff combined.jff
+
 # Convert CFG to PDA (LL Mode)
 jflap convert cfg-to-pda examples/an_bn_cfg.jff pda.jff --mode ll
 
 # Convert Regular Grammar to FSA
 jflap convert rg-to-fsa examples/regular_grammar_ab.jff fsa.jff
+```
+
+### Grammar Parsing & FIRST / FOLLOW Sets
+```bash
+# Parse string with CYK or Brute-Force
+jflap grammar parse examples/regular_grammar_ab.jff aab
+
+# Compute FIRST & FOLLOW Sets and test LL(1) parseability
+jflap grammar first-follow examples/an_bn_cfg.jff
+```
+
+### L-System Expansion
+```bash
+# Expand L-System to level 4
+jflap lsystem expand examples/fibonacci_lsystem.jff 4
+# Output: ABAABABA (length 8)
 ```
 
 ### Graphviz DOT Export
@@ -164,12 +193,13 @@ The built-in MCP server (`jflap_mcp.py` / `jflap mcp`) allows AI assistants to i
 1. `jflap_inspect`: Inspect `.jff` file structure and metadata.
 2. `jflap_simulate`: Batch simulate input strings on any automaton.
 3. `jflap_trace`: Step-by-step configuration trace (state, stack, tape).
-4. `jflap_fsa_operation`: NFA $\rightarrow$ DFA, minimization, and language equivalence check.
-5. `jflap_grammar_operation`: CYK / Brute-force grammar parsing and rule cleaning.
-6. `jflap_convert_model`: Cross-formalism conversion (FSA $\leftrightarrow$ RG, CFG $\leftrightarrow$ PDA).
-7. `jflap_create_model`: Programmatically build a `.jff` file from JSON.
-8. `jflap_export_dot`: Export an automaton to Graphviz DOT.
-9. `jflap_launch_gui`: Open the model in the interactive JFLAP 7.1 desktop window.
+4. `jflap_fsa_operation`: NFA $\rightarrow$ DFA, minimization, language equivalence check, and automata combination (`combine`).
+5. `jflap_grammar_operation`: CYK / Brute-force grammar parsing, rule cleaning, and FIRST / FOLLOW set analysis (`first_follow`).
+6. `jflap_convert_model`: Cross-formalism conversion (FSA $\rightarrow$ RE, FSA $\leftrightarrow$ RG, CFG $\leftrightarrow$ PDA).
+7. `jflap_lsystem_expand`: Parallel L-System symbol rewriting and derivation to depth $n$.
+8. `jflap_create_model`: Programmatically build a `.jff` file from JSON.
+9. `jflap_export_dot`: Export an automaton to Graphviz DOT.
+10. `jflap_launch_gui`: Open the model in the interactive JFLAP 7.1 desktop window.
 
 See [docs/MCP_SPECIFICATION.md](docs/MCP_SPECIFICATION.md) for full schemas and sample payloads.
 

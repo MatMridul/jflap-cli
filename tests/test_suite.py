@@ -208,9 +208,51 @@ class TestJFLAPSuite(unittest.TestCase):
         self.assertIn("q0 -> q1", res3.stdout)
 
     # -------------------------------------------------------------
-    # 7. Model Context Protocol (MCP) JSON-RPC Protocol Tests
+    # 7. Advanced Transformations & Analysis (FSA-to-RE, FIRST/FOLLOW, Combine, L-System)
     # -------------------------------------------------------------
-    def test_11_mcp_server_protocol(self):
+    def test_11_fsa_to_re(self):
+        fsa_file = os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff")
+        res = self.run_cli("convert", "fsa-to-re", fsa_file, "--json")
+        self.assertEqual(res.returncode, 0, f"Error: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertTrue(data.get("success"))
+        self.assertIn("regularExpression", data)
+        self.assertGreater(len(data["regularExpression"]), 0)
+
+    def test_12_grammar_first_follow(self):
+        cfg_file = os.path.join(EXAMPLES_DIR, "an_bn_cfg.jff")
+        res = self.run_cli("grammar", "first-follow", cfg_file, "--json")
+        self.assertEqual(res.returncode, 0, f"Error: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertIn("first", data)
+        self.assertIn("follow", data)
+        self.assertFalse(data.get("isLL1"))  # S -> aSb | ab is not LL(1)
+
+    def test_13_fsa_combine(self):
+        fsa1 = os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff")
+        fsa2 = os.path.join(EXAMPLES_DIR, "toggle_dfa.jff")
+        out_comb = os.path.join(self.temp_dir, "combined.jff")
+        res = self.run_cli("fsa", "combine", fsa1, fsa2, out_comb, "--json")
+        self.assertEqual(res.returncode, 0, f"Error: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("totalStates"), 6)
+        self.assertEqual(data.get("totalTransitions"), 12)
+
+    def test_14_lsystem_expand(self):
+        ls_file = os.path.join(EXAMPLES_DIR, "fibonacci_lsystem.jff")
+        res = self.run_cli("lsystem", "expand", ls_file, "4", "--json")
+        self.assertEqual(res.returncode, 0, f"Error: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("level"), 4)
+        self.assertEqual(data.get("length"), 8)
+        self.assertEqual(data.get("expandedString"), "ABAABABA")
+
+    # -------------------------------------------------------------
+    # 8. Model Context Protocol (MCP) JSON-RPC Protocol Tests
+    # -------------------------------------------------------------
+    def test_15_mcp_server_protocol(self):
         proc = subprocess.Popen(
             [sys.executable, MCP_PATH],
             stdin=subprocess.PIPE,
@@ -234,7 +276,7 @@ class TestJFLAPSuite(unittest.TestCase):
             proc.stdin.flush()
             tools_res = json.loads(proc.stdout.readline())
             tools = tools_res["result"]["tools"]
-            self.assertEqual(len(tools), 9)
+            self.assertEqual(len(tools), 10)
 
             # 3. tools/call jflap_simulate
             call_req = {
@@ -255,6 +297,26 @@ class TestJFLAPSuite(unittest.TestCase):
             sim_data = json.loads(call_res["result"]["content"][0]["text"])
             self.assertTrue(sim_data["results"][0]["accepted"])
             self.assertFalse(sim_data["results"][1]["accepted"])
+
+            # 4. tools/call jflap_lsystem_expand
+            ls_call = {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "jflap_lsystem_expand",
+                    "arguments": {
+                        "file": os.path.join(EXAMPLES_DIR, "fibonacci_lsystem.jff"),
+                        "level": 3
+                    }
+                }
+            }
+            proc.stdin.write(json.dumps(ls_call) + "\n")
+            proc.stdin.flush()
+            ls_res = json.loads(proc.stdout.readline())
+            ls_data = json.loads(ls_res["result"]["content"][0]["text"])
+            self.assertTrue(ls_data["success"])
+            self.assertEqual(ls_data["expandedString"], "ABAAB")
 
         finally:
             if proc.stdin and not proc.stdin.closed:

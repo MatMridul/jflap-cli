@@ -68,6 +68,12 @@ Checks whether two automata accept the exact same formal language.
 jflap fsa equals <file1.jff> <file2.jff> [--json]
 ```
 
+### `jflap fsa combine`
+Combines two automata into a single composite machine.
+```bash
+jflap fsa combine <file1.jff> <file2.jff> <output.jff> [--json]
+```
+
 ---
 
 ## 5. `grammar`
@@ -85,10 +91,22 @@ Removes lambda/epsilon, unit, and useless productions from a grammar.
 jflap grammar clean <input.jff> <output.jff> [--json]
 ```
 
+### `jflap grammar first-follow`
+Computes the FIRST and FOLLOW sets for all grammar symbols, and formally tests whether the grammar satisfies the LL(1) condition.
+```bash
+jflap grammar first-follow <grammar.jff> [--json]
+```
+
 ---
 
 ## 6. `convert`
 Cross-formalism model conversions.
+
+### `jflap convert fsa-to-re`
+Converts a Finite State Automaton to an equivalent Regular Expression using generalized transition graph (GTG) state-elimination.
+```bash
+jflap convert fsa-to-re <input_fsa.jff> [output_file] [--json]
+```
 
 ### `jflap convert fsa-to-rg`
 Converts a Finite State Automaton to an equivalent Right-Linear Regular Grammar.
@@ -148,7 +166,20 @@ jflap dot <input.jff> [-o output.dot]
 
 ---
 
-## 9. `gui`
+## 9. `lsystem`
+L-System (Lindenmayer System) operations.
+
+### `jflap lsystem expand`
+Expands an L-System axiom through parallel rule substitution to a specified recursion level.
+```bash
+jflap lsystem expand <file.jff> [level] [--json]
+```
+- `<file.jff>`: Path to L-System `.jff` file.
+- `[level]`: Expansion depth (default: 3).
+
+---
+
+## 10. `gui`
 Launches the official JFLAP 7.1 graphical desktop window.
 
 ```bash
@@ -157,7 +188,7 @@ jflap gui [file.jff]
 
 ---
 
-## 10. `mcp`
+## 11. `mcp`
 Starts the JSON-RPC stdio Model Context Protocol (MCP) server for AI assistants.
 
 ```bash

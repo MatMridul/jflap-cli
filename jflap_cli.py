@@ -217,6 +217,14 @@ def handle_fsa(args):
             print(f"Result: The two automata {msg}.")
         else:
             print(f"Error: {res.get('error')}", file=sys.stderr)
+    elif sub == "combine":
+        res = run_bridge("combine", args.file1, args.file2, args.output_file)
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif res.get("success"):
+            print(f"Combined automata into {res.get('totalStates')} states, {res.get('totalTransitions')} transitions. Saved to: {res.get('outputFile')}")
+        else:
+            print(f"Error: {res.get('error')}", file=sys.stderr)
 
 def handle_grammar(args):
     sub = args.grammar_command
@@ -241,10 +249,38 @@ def handle_grammar(args):
             print(f"Cleaned grammar (lambda/unit/useless removed): {res.get('originalProductions')} -> {res.get('cleanedProductions')} productions. Saved to: {res.get('outputFile')}")
         else:
             print(f"Error: {res.get('error')}", file=sys.stderr)
+    elif sub == "first-follow":
+        res = run_bridge("first_follow", args.file)
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif "first" in res:
+            print(f"\nGrammar Parsing Analysis for: {os.path.basename(args.file)}")
+            print(f"Is LL(1)? : {'YES' if res.get('isLL1') else 'NO'}\n")
+            f_rows = [[k, ", ".join(sorted(v))] for k, v in res.get("first", {}).items()]
+            print("FIRST Sets:")
+            print_table(["Symbol", "FIRST Set"], f_rows)
+            print("\nFOLLOW Sets:")
+            fl_rows = [[k, ", ".join(sorted(v))] for k, v in res.get("follow", {}).items()]
+            print_table(["Variable", "FOLLOW Set"], fl_rows)
+        else:
+            print(f"Error: {res.get('error')}", file=sys.stderr)
 
 def handle_convert(args):
     sub = args.convert_command
-    if sub == "fsa-to-rg":
+    if sub == "fsa-to-re":
+        cmd_args = [args.input_file]
+        if args.output_file:
+            cmd_args.append(args.output_file)
+        res = run_bridge("fsa_to_re", *cmd_args)
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif res.get("success"):
+            print(f"Regular Expression: {res.get('regularExpression')}")
+            if res.get("outputFile"):
+                print(f"Saved RE to: {res.get('outputFile')}")
+        else:
+            print(f"Error: {res.get('error')}", file=sys.stderr)
+    elif sub == "fsa-to-rg":
         res = run_bridge("fsa_to_rg", args.input_file, args.output_file)
         if args.json:
             print(json.dumps(res, indent=2))
@@ -336,6 +372,19 @@ def handle_create(args):
         jflap_builder.build_grammar(prods, args.start, out_path)
         print(f"Created Grammar at: {out_path}")
 
+def handle_lsystem(args):
+    sub = args.lsystem_command
+    if sub == "expand":
+        res = run_bridge("lsystem_expand", args.file, str(args.level))
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif res.get("success"):
+            print(f"\nL-System Expansion [Level {res.get('level')}]:")
+            print(f"Length: {res.get('length')} symbols")
+            print(f"String: {res.get('expandedString')}")
+        else:
+            print(f"Error: {res.get('error')}", file=sys.stderr)
+
 def handle_gui(args):
     """Launch official JFLAP 7.1 GUI."""
     cmd = ["java", "-jar", JAR_PATH]
@@ -398,10 +447,16 @@ def main():
     p_eq.add_argument("file1", help="First .jff file")
     p_eq.add_argument("file2", help="Second .jff file")
     p_eq.add_argument("--json", action="store_true")
+
+    p_comb = fsa_subs.add_parser("combine", help="Combine two automata into one")
+    p_comb.add_argument("file1", help="First .jff file")
+    p_comb.add_argument("file2", help="Second .jff file")
+    p_comb.add_argument("output_file", help="Destination combined .jff file")
+    p_comb.add_argument("--json", action="store_true")
     p_fsa.set_defaults(func=handle_fsa)
 
     # grammar operations
-    p_g = subparsers.add_parser("grammar", help="Grammar operations (parse, clean)")
+    p_g = subparsers.add_parser("grammar", help="Grammar operations (parse, clean, first-follow)")
     g_subs = p_g.add_subparsers(dest="grammar_command")
     
     p_gp = g_subs.add_parser("parse", help="Parse input string with CYK or Brute-force parser")
@@ -413,11 +468,20 @@ def main():
     p_gc.add_argument("input_file", help="Input grammar .jff")
     p_gc.add_argument("output_file", help="Output cleaned grammar .jff")
     p_gc.add_argument("--json", action="store_true")
+
+    p_ff = g_subs.add_parser("first-follow", help="Compute FIRST and FOLLOW sets, test LL(1)")
+    p_ff.add_argument("file", help="Path to grammar .jff")
+    p_ff.add_argument("--json", action="store_true")
     p_g.set_defaults(func=handle_grammar)
 
     # convert operations
     p_conv = subparsers.add_parser("convert", help="Convert between formal models")
     conv_subs = p_conv.add_subparsers(dest="convert_command")
+
+    p_re = conv_subs.add_parser("fsa-to-re", help="Convert FSA to Regular Expression")
+    p_re.add_argument("input_file", help="Input FSA .jff")
+    p_re.add_argument("output_file", nargs="?", help="Optional output .jff or .re file")
+    p_re.add_argument("--json", action="store_true")
     
     p_c1 = conv_subs.add_parser("fsa-to-rg", help="Convert FSA to Regular Grammar")
     p_c1.add_argument("input_file", help="Input FSA .jff")
@@ -459,6 +523,15 @@ def main():
     p_cr.add_argument("--from-json", help="Build model from JSON specification file")
     p_cr.add_argument("-o", "--output", help="Output .jff file path")
     p_cr.set_defaults(func=handle_create)
+
+    # lsystem
+    p_ls = subparsers.add_parser("lsystem", help="L-System operations")
+    ls_subs = p_ls.add_subparsers(dest="lsystem_command")
+    p_lse = ls_subs.add_parser("expand", help="Expand an L-System to n levels")
+    p_lse.add_argument("file", help="Path to L-System .jff")
+    p_lse.add_argument("level", type=int, nargs="?", default=3, help="Expansion level (default: 3)")
+    p_lse.add_argument("--json", action="store_true")
+    p_ls.set_defaults(func=handle_lsystem)
 
     # gui launcher
     p_gui = subparsers.add_parser("gui", help="Launch official JFLAP 7.1 GUI window")
