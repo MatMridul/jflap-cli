@@ -296,26 +296,25 @@ Spawns the official interactive JFLAP 7.1 Swing desktop window, optionally pre-l
 
 ---
 
-## 3. Configuration with MCP Clients
+## 3. Configuration with MCP Clients & Agents
 
-### Claude Desktop (`claude_desktop_config.json`)
+For complete, platform-specific setup instructions for Claude Desktop, Google Antigravity, Cursor, Windsurf, Zed, and subagents, see the [AI Agent Setup Guide](AGENT_SETUP.md).
+
+### Quick Snippet (Claude Desktop, Antigravity, Cursor)
 ```json
 {
   "mcpServers": {
     "jflap": {
       "command": "python",
-      "args": ["C:/Users/mridu/jflap-cli/jflap_mcp.py"]
+      "args": ["<PATH_TO_REPO>/jflap_mcp.py"]
     }
   }
 }
 ```
 
-### Antigravity / Cursor / Zed
-Point the server entry to:
+Or start the MCP server directly via terminal:
 ```bash
-python C:/Users/mridu/jflap-cli/jflap_mcp.py
-```
-Or use the CLI command:
-```bash
+python jflap_mcp.py
+# or
 jflap mcp
 ```

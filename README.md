@@ -175,9 +175,11 @@ jflap gui examples/contains_ab_min_dfa.jff
 
 ## Model Context Protocol (MCP) Integration
 
-The built-in MCP server (`jflap_mcp.py` / `jflap mcp`) allows AI assistants to inspect, simulate, convert, and construct automata models directly.
+The built-in MCP server (`jflap_mcp.py` / `jflap mcp`) allows AI assistants and autonomous agents to inspect, simulate, convert, and construct automata models directly.
 
-### Claude Desktop Configuration (`claude_desktop_config.json`)
+### Quick Setup for AI Agents & Clients
+
+#### 1. Google Antigravity / Gemini CLI (`~/.gemini/config/mcp_config.json`)
 ```json
 {
   "mcpServers": {
@@ -188,6 +190,32 @@ The built-in MCP server (`jflap_mcp.py` / `jflap mcp`) allows AI assistants to i
   }
 }
 ```
+
+#### 2. Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "jflap": {
+      "command": "python",
+      "args": ["<PATH_TO_REPO>/jflap_mcp.py"]
+    }
+  }
+}
+```
+
+#### 3. Cursor IDE (`.cursor/mcp.json` or Settings > Features > MCP)
+```json
+{
+  "mcpServers": {
+    "jflap": {
+      "command": "python",
+      "args": ["<PATH_TO_REPO>/jflap_mcp.py"]
+    }
+  }
+}
+```
+
+*For Windsurf, Zed, and headless subagent shell execution, see the [Agent Setup Guide](docs/AGENT_SETUP.md).*
 
 ### Exposed MCP Tools
 1. `jflap_inspect`: Inspect `.jff` file structure and metadata.
@@ -207,6 +235,7 @@ See [docs/MCP_SPECIFICATION.md](docs/MCP_SPECIFICATION.md) for full schemas and 
 
 ## Documentation Index
 
+- [AI Agent Setup Guide](docs/AGENT_SETUP.md): Configuration instructions for Antigravity, Claude, Cursor, Windsurf, Zed, and subagents.
 - [Architecture & Technical Design](docs/ARCHITECTURE.md): How the Java headless bridge works and how Swing modal blocks were neutralized.
 - [MCP Specification](docs/MCP_SPECIFICATION.md): Tool-by-tool JSON schema, request parameters, and response structures.
 - [CLI Reference Manual](docs/CLI_REFERENCE.md): Comprehensive documentation of all subcommands, arguments, and flags.
