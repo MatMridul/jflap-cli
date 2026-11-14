@@ -254,7 +254,13 @@ See [docs/MCP_SPECIFICATION.md](docs/MCP_SPECIFICATION.md) for full schemas and 
 
 ---
 
-## License & Acknowledgments
+## License & Legal Compliance
 
-- **CLI & MCP Tooling**: Released under the [MIT License](LICENSE). Copyright (c) 2026 Mridul Mathur.
-- **JFLAP**: JFLAP 7.1 is academic software developed by Prof. Susan H. Rodger and students at Duke University. [JFLAP7.1.jar](https://www.jflap.org/) is redistributed under JFLAP's educational license.
+- **CLI & MCP Tooling**: Released as free and open-source software under the [MIT License](LICENSE). Copyright (c) 2026 Mridul Mathur.
+- **JFLAP 7.1 Software**: JFLAP 7.1 is academic software developed by Prof. Susan H. Rodger and student contributors at Duke University ([https://www.jflap.org/](https://www.jflap.org/)).
+  - Copyright (c) 2002–2009 Susan H. Rodger, Duke University. All rights reserved.
+  - Distributed under the terms of the official [JFLAP 7.1 License](LICENSE-JFLAP).
+  - **Compliance Details**:
+    1. A verbatim copy of the JFLAP license is included in [LICENSE-JFLAP](LICENSE-JFLAP).
+    2. This tool and repository are distributed free of charge; no fee may be charged for any distribution including JFLAP in source or binary form.
+    3. The names of Duke University and the authors are not used for endorsement of derived products.

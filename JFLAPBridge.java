@@ -278,7 +278,7 @@ public class JFLAPBridge {
             if (i > 0) sb.append(",");
             boolean accepted = false;
             try {
-                accepted = runSimulation(sim, input, 10000);
+                accepted = runSimulation(sim, auto, input, 10000);
             } catch (Exception e) {
                 accepted = false;
             }
@@ -389,7 +389,7 @@ public class JFLAPBridge {
             Configuration current = currentPath.get(currentPath.size() - 1);
             lastPath = currentPath;
 
-            if (current.isAccept()) {
+            if (isAcceptingConfig(current, auto)) {
                 accepted = true;
                 path = currentPath;
                 break;
@@ -419,7 +419,7 @@ public class JFLAPBridge {
             sb.append("\"state\":").append(c.getCurrentState() != null ? c.getCurrentState().getID() : -1).append(",");
             sb.append("\"stateName\":\"").append(c.getCurrentState() != null ? escapeJson(c.getCurrentState().getName()) : "").append("\",");
             sb.append("\"description\":\"").append(escapeJson(c.toString())).append("\",");
-            sb.append("\"isAccept\":").append(c.isAccept());
+            sb.append("\"isAccept\":").append(isAcceptingConfig(c, auto));
 
             if (c instanceof FSAConfiguration) {
                 FSAConfiguration fc = (FSAConfiguration) c;
@@ -958,8 +958,21 @@ public class JFLAPBridge {
         return SimulatorFactory.getSimulator(auto);
     }
 
+    private static boolean isAcceptingConfig(Configuration c, Automaton auto) {
+        if (c == null) return false;
+        if (c instanceof PDAConfiguration) {
+            PDAConfiguration pc = (PDAConfiguration) c;
+            if (pc.getUnprocessedInput().length() == 0) {
+                if (auto != null && auto.isFinalState(pc.getCurrentState())) return true;
+                if (pc.getStack() != null && pc.getStack().height() == 0) return true;
+            }
+            return false;
+        }
+        return c.isAccept();
+    }
+
     public static class HeadlessPDASimulator extends AutomatonSimulator {
-        private int myAcceptance = 0; // 0: Final State, 1: Empty Stack
+        private int myAcceptance = 1; // 1: Final State, 0: Empty Stack
 
         public HeadlessPDASimulator(Automaton automaton) {
             super(automaton);
@@ -1023,14 +1036,14 @@ public class JFLAPBridge {
         }
     }
 
-    private static boolean runSimulation(AutomatonSimulator sim, String input, int maxSteps) {
+    private static boolean runSimulation(AutomatonSimulator sim, Automaton auto, String input, int maxSteps) {
         Configuration[] initial = sim.getInitialConfigurations(input);
         if (initial == null || initial.length == 0) return false;
 
         Set<String> visited = new HashSet<>();
         Queue<Configuration> queue = new LinkedList<>();
         for (Configuration c : initial) {
-            if (c.isAccept()) return true;
+            if (isAcceptingConfig(c, auto)) return true;
             queue.add(c);
             visited.add(c.toString());
         }
@@ -1039,7 +1052,7 @@ public class JFLAPBridge {
         while (!queue.isEmpty() && steps < maxSteps) {
             Configuration curr = queue.poll();
             steps++;
-            if (curr.isAccept()) return true;
+            if (isAcceptingConfig(curr, auto)) return true;
 
             // Stack depth protection for PDA
             if (curr instanceof PDAConfiguration) {
@@ -1052,7 +1065,7 @@ public class JFLAPBridge {
             ArrayList<Configuration> nextList = sim.stepConfiguration(curr);
             if (nextList != null) {
                 for (Configuration next : nextList) {
-                    if (next.isAccept()) return true;
+                    if (isAcceptingConfig(next, auto)) return true;
                     String repr = next.toString();
                     if (!visited.contains(repr)) {
                         visited.add(repr);
