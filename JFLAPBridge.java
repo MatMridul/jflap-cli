@@ -385,16 +385,19 @@ public class JFLAPBridge {
     // -------------------------------------------------------------
     private static void inspect(String[] args) throws Exception {
         if (args.length < 2) {
-            printError("Usage: inspect <file.jff>");
-            System.exit(1);
+            throw new BridgeException("invalid_argument", "Usage: inspect <file.jff>");
         }
         File file = new File(args[1]);
         if (!file.exists()) {
-            printError("File not found: " + file.getAbsolutePath());
-            System.exit(1);
+            throw new BridgeException("file_not_found", "File not found: " + file.getAbsolutePath());
         }
 
-        Serializable obj = decodeFile(file);
+        Serializable obj;
+        try {
+            obj = decodeFile(file);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to parse model file: " + e.getMessage());
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append("\"file\":\"").append(escapeJson(file.getAbsolutePath())).append("\",");
@@ -447,6 +450,31 @@ public class JFLAPBridge {
             }
             sb.append("],");
 
+            // Alphabet
+            Set<String> alphabetSet = new TreeSet<>();
+            for (Transition t : auto.getTransitions()) {
+                String sym = "";
+                if (t instanceof FSATransition) {
+                    sym = ((FSATransition) t).getLabel();
+                } else if (t instanceof PDATransition) {
+                    sym = ((PDATransition) t).getInputToRead();
+                } else if (t instanceof TMTransition) {
+                    sym = ((TMTransition) t).getRead(0);
+                } else if (t instanceof MealyTransition) {
+                    sym = ((MealyTransition) t).getLabel();
+                }
+                if (sym != null && !sym.isEmpty()) {
+                    alphabetSet.add(sym);
+                }
+            }
+            sb.append("\"alphabet\":[");
+            int aCount = 0;
+            for (String a : alphabetSet) {
+                if (aCount++ > 0) sb.append(",");
+                sb.append("\"").append(escapeJson(a)).append("\"");
+            }
+            sb.append("],");
+
             // Determinism
             boolean isDeterministic = true;
             try {
@@ -457,6 +485,104 @@ public class JFLAPBridge {
                 }
             } catch (Exception e) {}
             sb.append("\"isDeterministic\":").append(isDeterministic).append(",");
+
+            // Completeness check: does every state have outgoing transitions for every alphabet symbol?
+            boolean isComplete = true;
+            if (!alphabetSet.isEmpty()) {
+                for (State s : auto.getStates()) {
+                    Set<String> stateOut = new HashSet<>();
+                    for (Transition t : auto.getTransitionsFromState(s)) {
+                        String sym = "";
+                        if (t instanceof FSATransition) sym = ((FSATransition) t).getLabel();
+                        else if (t instanceof PDATransition) sym = ((PDATransition) t).getInputToRead();
+                        else if (t instanceof TMTransition) sym = ((TMTransition) t).getRead(0);
+                        if (sym != null && !sym.isEmpty()) stateOut.add(sym);
+                    }
+                    if (!stateOut.containsAll(alphabetSet)) {
+                        isComplete = false;
+                        break;
+                    }
+                }
+            }
+            sb.append("\"isComplete\":").append(isComplete).append(",");
+
+            // Unreachable states (cannot be reached from initial state)
+            Set<Integer> reachable = new HashSet<>();
+            State initState = auto.getInitialState();
+            if (initState != null) {
+                Queue<State> rQueue = new LinkedList<>();
+                rQueue.add(initState);
+                reachable.add(initState.getID());
+                while (!rQueue.isEmpty()) {
+                    State curr = rQueue.poll();
+                    for (Transition t : auto.getTransitionsFromState(curr)) {
+                        State toState = t.getToState();
+                        if (toState != null && reachable.add(toState.getID())) {
+                            rQueue.add(toState);
+                        }
+                    }
+                }
+            }
+
+            List<Integer> unreachableStates = new ArrayList<>();
+            for (State s : auto.getStates()) {
+                if (!reachable.contains(s.getID())) {
+                    unreachableStates.add(s.getID());
+                }
+            }
+
+            sb.append("\"unreachableStates\":[");
+            for (int i = 0; i < unreachableStates.size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append(unreachableStates.get(i));
+            }
+            sb.append("],");
+
+            // Dead states (cannot reach any final state)
+            Map<Integer, List<Integer>> reverseAdj = new HashMap<>();
+            for (State s : auto.getStates()) {
+                reverseAdj.put(s.getID(), new ArrayList<>());
+            }
+            for (Transition t : auto.getTransitions()) {
+                State u = t.getFromState();
+                State v = t.getToState();
+                if (u != null && v != null && reverseAdj.containsKey(v.getID())) {
+                    reverseAdj.get(v.getID()).add(u.getID());
+                }
+            }
+
+            Set<Integer> canReachFinal = new HashSet<>();
+            Queue<Integer> fQueue = new LinkedList<>();
+            for (State fs : auto.getFinalStates()) {
+                canReachFinal.add(fs.getID());
+                fQueue.add(fs.getID());
+            }
+
+            while (!fQueue.isEmpty()) {
+                int currId = fQueue.poll();
+                List<Integer> predecessors = reverseAdj.get(currId);
+                if (predecessors != null) {
+                    for (int predId : predecessors) {
+                        if (canReachFinal.add(predId)) {
+                            fQueue.add(predId);
+                        }
+                    }
+                }
+            }
+
+            List<Integer> deadStates = new ArrayList<>();
+            for (State s : auto.getStates()) {
+                if (!canReachFinal.contains(s.getID())) {
+                    deadStates.add(s.getID());
+                }
+            }
+
+            sb.append("\"deadStates\":[");
+            for (int i = 0; i < deadStates.size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append(deadStates.get(i));
+            }
+            sb.append("],");
 
             // Transitions
             sb.append("\"transitions\":[");
@@ -1706,24 +1832,42 @@ public class JFLAPBridge {
     }
 
     public static Serializable decodeFile(File file) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(file);
-        Element elem = doc.getDocumentElement();
-        NodeList typeNodes = elem.getElementsByTagName("type");
-        if (typeNodes.getLength() > 0) {
-            String type = typeNodes.item(0).getTextContent().trim();
-            if ("turing".equals(type)) {
-                NodeList bbNodes = elem.getElementsByTagName("block");
-                if (bbNodes.getLength() > 0) {
-                    return new TMBBTransducer().fromDOM(doc);
-                } else {
-                    return new TMTransducer().fromDOM(doc);
+        if (!file.exists()) {
+            throw new BridgeException("file_not_found", "File not found: " + file.getAbsolutePath());
+        }
+        Document doc;
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            doc = builder.parse(file);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to parse XML in model file '" + file.getName() + "': " + e.getMessage());
+        }
+
+        try {
+            Element elem = doc.getDocumentElement();
+            NodeList typeNodes = elem.getElementsByTagName("type");
+            if (typeNodes.getLength() > 0) {
+                String type = typeNodes.item(0).getTextContent().trim();
+                if ("turing".equals(type)) {
+                    NodeList bbNodes = elem.getElementsByTagName("block");
+                    if (bbNodes.getLength() > 0) {
+                        return new TMBBTransducer().fromDOM(doc);
+                    } else {
+                        return new TMTransducer().fromDOM(doc);
+                    }
                 }
             }
+            Transducer transducer = TransducerFactory.getTransducer(doc);
+            if (transducer == null) {
+                throw new BridgeException("malformed_model", "Unknown or unsupported model structure in '" + file.getName() + "'");
+            }
+            return transducer.fromDOM(doc);
+        } catch (BridgeException be) {
+            throw be;
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Malformed automaton/grammar definition: " + e.getMessage());
         }
-        Transducer transducer = TransducerFactory.getTransducer(doc);
-        return transducer.fromDOM(doc);
     }
 
     // -------------------------------------------------------------

@@ -41,6 +41,8 @@ def handle_inspect(args):
     data = run_bridge("inspect", args.file)
     if args.json:
         print(json.dumps(data, indent=2))
+        if "error" in data:
+            sys.exit(1)
         return
     if "error" in data:
         print(f"Error: {data['error']}", file=sys.stderr)
@@ -54,6 +56,13 @@ def handle_inspect(args):
     
     if data.get("category") == "automaton":
         print(f"Deterministic : {'YES' if data.get('isDeterministic') else 'NO (Nondeterministic)'}")
+        print(f"Complete      : {'YES' if data.get('isComplete') else 'NO'}")
+        if data.get("alphabet"):
+            print(f"Alphabet      : {', '.join(data.get('alphabet', []))}")
+        unreach = [f"q{s}" for s in data.get('unreachableStates', [])]
+        print(f"Unreachable   : {', '.join(unreach) if unreach else 'None (all reachable)'}")
+        dead = [f"q{s}" for s in data.get('deadStates', [])]
+        print(f"Dead States   : {', '.join(dead) if dead else 'None (all can reach final)'}")
         print(f"Initial State : q{data.get('initialState')}")
         finals = [f"q{s}" for s in data.get('finalStates', [])]
         print(f"Final States  : {', '.join(finals) if finals else 'None'}\n")

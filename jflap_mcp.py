@@ -438,10 +438,12 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
             return {"content": [{"type": "text", "text": f"Launched JFLAP 7.1 GUI: {' '.join(cmd)}"}]}
 
         else:
-            return {"content": [{"type": "text", "text": f"Unknown tool: {name}"}], "isError": True}
+            err_obj = {"error": f"Unknown tool: {name}", "error_type": "unknown_tool"}
+            return {"content": [{"type": "text", "text": json.dumps(err_obj, indent=2)}], "isError": True}
 
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Error executing {name}: {str(e)}"}], "isError": True}
+        err_obj = {"error": f"Error executing {name}: {str(e)}", "error_type": "tool_execution_error"}
+        return {"content": [{"type": "text", "text": json.dumps(err_obj, indent=2)}], "isError": True}
 
 # ---------------------------------------------------------------------------
 # JSON-RPC 2.0 stdio Server Loop

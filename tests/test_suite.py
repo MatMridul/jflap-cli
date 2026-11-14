@@ -431,6 +431,34 @@ class TestJFLAPSuite(unittest.TestCase):
         self.assertIn("modelA_accepts", d2)
         self.assertIn("modelB_accepts", d2)
 
+    def test_20_inspect_completeness_and_unreachable_dead_states(self):
+        """Test jflap_inspect reports completeness, unreachable states, and dead states."""
+        demo_file = os.path.join(EXAMPLES_DIR, "unreachable_dead_demo.jff")
+        res = self.run_cli("inspect", demo_file, "--json")
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout)
+        self.assertTrue(data.get("isDeterministic"))
+        self.assertFalse(data.get("isComplete"))
+        self.assertEqual(data.get("unreachableStates"), [2])
+        self.assertEqual(data.get("deadStates"), [3])
+
+    def test_21_structured_errors_for_malformed_and_unknown(self):
+        """Test structured error responses for malformed files and missing files."""
+        # Missing file
+        res1 = self.run_cli("inspect", os.path.join(EXAMPLES_DIR, "missing.jff"), "--json")
+        self.assertNotEqual(res1.returncode, 0)
+        d1 = json.loads(res1.stdout)
+        self.assertEqual(d1.get("error_type"), "file_not_found")
+
+        # Malformed model XML
+        corrupt_file = os.path.join(self.temp_dir, "corrupt.jff")
+        with open(corrupt_file, "w") as f:
+            f.write("<structure><not-valid-xml")
+        res2 = self.run_cli("inspect", corrupt_file, "--json")
+        self.assertNotEqual(res2.returncode, 0)
+        d2 = json.loads(res2.stdout)
+        self.assertEqual(d2.get("error_type"), "malformed_model")
+
 
 if __name__ == "__main__":
     unittest.main()
