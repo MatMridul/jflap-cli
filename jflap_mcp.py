@@ -11,40 +11,9 @@ import json
 import subprocess
 from typing import Dict, Any, List
 import jflap_builder
+from jflap_bridge_client import run_bridge, run_simulate_batch, JAR_PATH, ensure_environment
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-JAR_PATH = os.path.join(BASE_DIR, "JFLAP7.1.jar")
-BRIDGE_CLASS = "JFLAPBridge"
-
-def ensure_environment():
-    """Ensure JFLAP7.1.jar is present and JFLAPBridge.java is compiled."""
-    if not os.path.exists(JAR_PATH):
-        print(f"[jflap-mcp] Downloading JFLAP7.1.jar...", file=sys.stderr)
-        import urllib.request
-        url = "https://www.jflap.org/jflaptmp/july27-18/JFLAP7.1.jar"
-        urllib.request.urlretrieve(url, JAR_PATH)
-        
-    class_path = os.path.join(BASE_DIR, "JFLAPBridge.class")
-    java_path = os.path.join(BASE_DIR, "JFLAPBridge.java")
-    if not os.path.exists(class_path) or (os.path.exists(java_path) and os.path.getmtime(java_path) > os.path.getmtime(class_path)):
-        cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
-        subprocess.run(["javac", "-cp", cp, java_path], check=True)
-
-def run_bridge(cmd: str, *args) -> Dict[str, Any]:
-    ensure_environment()
-    cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
-    cmd_args = ["java", "-Djava.awt.headless=true", "-cp", cp, BRIDGE_CLASS, cmd, *args]
-    try:
-        proc = subprocess.run(cmd_args, capture_output=True, text=True, check=False)
-        out = proc.stdout.strip()
-        if not out:
-            return {"error": proc.stderr.strip() or "No output from JFLAPBridge"}
-        idx = out.find("{")
-        if idx != -1:
-            return json.loads(out[idx:])
-        return {"raw_output": out, "stderr": proc.stderr}
-    except Exception as e:
-        return {"error": str(e)}
 
 # ---------------------------------------------------------------------------
 # MCP Tool Definitions
@@ -87,6 +56,30 @@ TOOLS = [
                 }
             },
             "required": ["file", "inputs"]
+        }
+    },
+    {
+        "name": "jflap_simulate_batch",
+        "description": "High-performance batch simulation of hundreds or thousands of input strings on an automaton in a single call. Returns verdicts[] array.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string",
+                    "description": "Path to the .jff automaton file"
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of input strings to simulate"
+                },
+                "acceptance_mode": {
+                    "type": "string",
+                    "enum": ["final_state", "empty_stack"],
+                    "description": "For PDAs: explicit acceptance criterion ('final_state' or 'empty_stack')."
+                }
+            },
+            "required": ["model", "inputs"]
         }
     },
     {
@@ -282,6 +275,13 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
                 bridge_args.extend(["--acceptance", args["acceptance_mode"]])
             bridge_args.extend(inputs)
             res = run_bridge("simulate", f, *bridge_args)
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
+
+        elif name == "jflap_simulate_batch":
+            model = args.get("model") or args.get("file")
+            inputs = args.get("inputs", [])
+            acc_mode = args.get("acceptance_mode")
+            res = run_simulate_batch(model, inputs, acc_mode)
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
 
         elif name == "jflap_trace":

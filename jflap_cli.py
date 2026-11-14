@@ -12,45 +12,9 @@ import argparse
 import subprocess
 from typing import List, Dict, Any
 import jflap_builder
+from jflap_bridge_client import run_bridge, run_simulate_batch, JAR_PATH, ensure_environment
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-JAR_PATH = os.path.join(BASE_DIR, "JFLAP7.1.jar")
-BRIDGE_CLASS = "JFLAPBridge"
-
-def ensure_environment():
-    """Ensure JFLAP7.1.jar is present and JFLAPBridge.java is compiled."""
-    if not os.path.exists(JAR_PATH):
-        print(f"[jflap] Downloading JFLAP7.1.jar from official site...", file=sys.stderr)
-        import urllib.request
-        url = "https://www.jflap.org/jflaptmp/july27-18/JFLAP7.1.jar"
-        urllib.request.urlretrieve(url, JAR_PATH)
-        print(f"[jflap] Downloaded JFLAP7.1.jar successfully.", file=sys.stderr)
-        
-    class_path = os.path.join(BASE_DIR, "JFLAPBridge.class")
-    java_path = os.path.join(BASE_DIR, "JFLAPBridge.java")
-    if not os.path.exists(class_path) or (os.path.exists(java_path) and os.path.getmtime(java_path) > os.path.getmtime(class_path)):
-        cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
-        subprocess.run(["javac", "-cp", cp, java_path], check=True)
-
-def run_bridge(cmd: str, *args) -> Dict[str, Any]:
-    """Execute command on JFLAPBridge and parse JSON output."""
-    ensure_environment()
-    cp = f"{BASE_DIR};{JAR_PATH}" if os.name == "nt" else f"{BASE_DIR}:{JAR_PATH}"
-    cmd_args = ["java", "-Djava.awt.headless=true", "-cp", cp, BRIDGE_CLASS, cmd, *args]
-    try:
-        proc = subprocess.run(cmd_args, capture_output=True, text=True, check=False)
-        out = proc.stdout.strip()
-        if not out:
-            return {"error": proc.stderr.strip() or "No output from JFLAPBridge"}
-        
-        # In case there are warning lines before JSON, find first '{'
-        idx = out.find("{")
-        if idx != -1:
-            json_text = out[idx:]
-            return json.loads(json_text)
-        return {"raw_output": out, "stderr": proc.stderr}
-    except Exception as e:
-        return {"error": str(e)}
 
 def print_table(headers: List[str], rows: List[List[Any]]):
     """Simple ASCII table formatter."""
@@ -159,6 +123,39 @@ def handle_simulate(args):
             
     headers = ["Input String", "Result"] + (["Output / Tape"] if has_output else [])
     print_table(headers, rows)
+
+def handle_simulate_batch(args):
+    inputs = list(args.inputs)
+    if getattr(args, "inputs_file", None):
+        with open(args.inputs_file, "r", encoding="utf-8") as f:
+            for line in f:
+                inputs.append(line.strip())
+    if not inputs:
+        inputs = [""]
+    res = run_simulate_batch(args.file, inputs, getattr(args, "acceptance_mode", None))
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return
+    if "error" in res:
+        print(f"Error: {res['error']}", file=sys.stderr)
+        sys.exit(1)
+
+    pda_mode = res.get("acceptanceMode")
+    mode_str = f" [PDA Acceptance: {pda_mode}]" if pda_mode else ""
+    print(f"\nBatch Simulation Results: {os.path.basename(res.get('model', ''))}{mode_str}")
+    total = res.get("total", len(inputs))
+    verdicts = res.get("verdicts", [])
+    accepted_count = sum(1 for v in verdicts if v)
+    rejected_count = total - accepted_count
+    print(f"Total Inputs: {total} | Accepted: {accepted_count} | Rejected: {rejected_count}\n")
+    if total <= 50:
+        rows = []
+        for inp, v in zip(inputs, verdicts):
+            inp_str = f"'{inp}'" if inp != "" else "λ (empty)"
+            rows.append([inp_str, "ACCEPTED" if v else "REJECTED"])
+        print_table(["Input String", "Result"], rows)
+    else:
+        print(f"(Displaying summary counts for {total} inputs. Pass --json to see full verdicts array.)")
 
 def handle_trace(args):
     bridge_args = [args.input]
@@ -433,6 +430,15 @@ def main():
     p_sim.add_argument("-a", "--acceptance-mode", dest="acceptance_mode", choices=["final_state", "empty_stack"], help="PDA acceptance mode (default 'final_state' unless declared in model)")
     p_sim.add_argument("--json", action="store_true", help="Output raw JSON")
     p_sim.set_defaults(func=handle_simulate)
+
+    # simulate-batch
+    p_sim_b = subparsers.add_parser("simulate-batch", help="Batch simulation of many input strings")
+    p_sim_b.add_argument("file", help="Path to .jff file")
+    p_sim_b.add_argument("inputs", nargs="*", default=[], help="Input strings to simulate")
+    p_sim_b.add_argument("--inputs-file", dest="inputs_file", help="File with one input string per line")
+    p_sim_b.add_argument("-a", "--acceptance-mode", dest="acceptance_mode", choices=["final_state", "empty_stack"], help="PDA acceptance mode")
+    p_sim_b.add_argument("--json", action="store_true", help="Output raw JSON")
+    p_sim_b.set_defaults(func=handle_simulate_batch)
 
     # trace
     p_tr = subparsers.add_parser("trace", help="Get step-by-step configuration execution trace")

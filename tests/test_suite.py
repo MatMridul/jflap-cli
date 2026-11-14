@@ -377,6 +377,16 @@ class TestJFLAPSuite(unittest.TestCase):
         self.assertEqual(d_tr_f.get("acceptanceMode"), "empty_stack")
         self.assertFalse(d_tr_f.get("accepted"))
 
+    def test_17_simulate_batch(self):
+        """Test high-performance simulate_batch with many inputs."""
+        fsa_file = os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff")
+        inputs = ["ab", "aab", "xyz", "bab", "bba"]
+        res = self.run_cli("simulate-batch", fsa_file, *inputs, "--json")
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout)
+        self.assertEqual(data.get("total"), 5)
+        self.assertEqual(data.get("verdicts"), [True, True, False, True, False])
+
 
 if __name__ == "__main__":
     unittest.main()

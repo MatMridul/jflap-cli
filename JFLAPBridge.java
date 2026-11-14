@@ -11,6 +11,7 @@ import file.xml.TMTransducer;
 import file.xml.TMBBTransducer;
 import java.io.*;
 import java.util.*;
+import java.nio.charset.StandardCharsets;
 import java.awt.Point;
 import javax.swing.tree.DefaultTreeModel;
 
@@ -30,77 +31,349 @@ import file.Codec;
 public class JFLAPBridge {
 
     private static final XMLCodec CODEC = new XMLCodec();
+    private static boolean isServerMode = false;
+
+    public static class BridgeException extends Exception {
+        private final String errorType;
+        public BridgeException(String errorType, String message) {
+            super(message);
+            this.errorType = errorType;
+        }
+        public String getErrorType() { return errorType; }
+    }
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            printError("No command specified. Usage: java JFLAPBridge <command> [args...]");
+            printError("invalid_argument", "No command specified. Usage: java JFLAPBridge <command> [args...]");
             System.exit(1);
         }
 
-        String command = args[0].toLowerCase();
+        if ("--server".equals(args[0]) || "server".equals(args[0])) {
+            isServerMode = true;
+            runServer();
+            return;
+        }
+
         try {
-            switch (command) {
-                case "inspect":
-                    inspect(args);
-                    break;
-                case "simulate":
-                    simulate(args);
-                    break;
-                case "trace":
-                    trace(args);
-                    break;
-                case "nfa_to_dfa":
-                    nfaToDfa(args);
-                    break;
-                case "minimize":
-                    minimize(args);
-                    break;
-                case "fsa_equals":
-                    fsaEquals(args);
-                    break;
-                case "grammar_parse":
-                    grammarParse(args);
-                    break;
-                case "grammar_clean":
-                    grammarClean(args);
-                    break;
-                case "fsa_to_rg":
-                    fsaToRg(args);
-                    break;
-                case "rg_to_fsa":
-                    rgToFsa(args);
-                    break;
-                case "cfg_to_pda":
-                    cfgToPda(args);
-                    break;
-                case "pda_to_cfg":
-                    pdaToCfg(args);
-                    break;
-                case "to_dot":
-                    toDot(args);
-                    break;
-                case "fsa_to_re":
-                    fsaToRe(args);
-                    break;
-                case "first_follow":
-                    firstFollow(args);
-                    break;
-                case "lsystem_expand":
-                    lsystemExpand(args);
-                    break;
-                case "combine":
-                    combineAutomata(args);
-                    break;
-                default:
-                    printError("Unknown command: " + command);
-                    System.exit(1);
-            }
+            dispatchCommand(args);
         } catch (Throwable t) {
-            StringWriter sw = new StringWriter();
-            t.printStackTrace(new PrintWriter(sw));
-            printError("Execution failed: " + t.getMessage() + "\n" + sw.toString());
+            handleThrowable(t);
             System.exit(1);
         }
+    }
+
+    private static void runServer() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                if ("exit".equalsIgnoreCase(line) || "quit".equalsIgnoreCase(line)) {
+                    break;
+                }
+                try {
+                    handleServerLine(line);
+                } catch (Throwable t) {
+                    handleThrowable(t);
+                }
+            }
+        } catch (Exception e) {
+            // Clean exit when stdin closes
+        }
+    }
+
+    private static void handleServerLine(String line) throws Exception {
+        if (line.startsWith("{")) {
+            Map<String, Object> req = parseSimpleJson(line);
+            String cmd = (String) req.get("cmd");
+            if (cmd == null) {
+                printError("invalid_argument", "Missing 'cmd' in JSON request");
+                return;
+            }
+            if ("simulate_batch".equalsIgnoreCase(cmd)) {
+                String model = (String) req.get("model");
+                if (model == null) model = (String) req.get("file");
+                @SuppressWarnings("unchecked")
+                List<String> inputs = (List<String>) req.get("inputs");
+                if (inputs == null) inputs = Collections.emptyList();
+                String accMode = (String) req.get("acceptance_mode");
+                if (accMode == null) accMode = (String) req.get("acceptanceMode");
+                simulateBatch(model, inputs, accMode);
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            List<String> listArgs = (List<String>) req.get("args");
+            if (listArgs == null) listArgs = Collections.emptyList();
+            String[] args = new String[listArgs.size() + 1];
+            args[0] = cmd;
+            for (int i = 0; i < listArgs.size(); i++) {
+                args[i + 1] = listArgs.get(i);
+            }
+            dispatchCommand(args);
+        } else {
+            String[] tokens = line.split("\\t+");
+            if (tokens.length == 1) tokens = line.split("\\s+");
+            dispatchCommand(tokens);
+        }
+    }
+
+    public static void dispatchCommand(String[] args) throws Exception {
+        String command = args[0].toLowerCase();
+        switch (command) {
+            case "inspect":
+                inspect(args);
+                break;
+            case "simulate":
+                simulate(args);
+                break;
+            case "simulate_batch":
+                handleSimulateBatchCli(args);
+                break;
+            case "trace":
+                trace(args);
+                break;
+            case "nfa_to_dfa":
+                nfaToDfa(args);
+                break;
+            case "minimize":
+                minimize(args);
+                break;
+            case "fsa_equals":
+                fsaEquals(args);
+                break;
+            case "grammar_parse":
+                grammarParse(args);
+                break;
+            case "grammar_clean":
+                grammarClean(args);
+                break;
+            case "fsa_to_rg":
+                fsaToRg(args);
+                break;
+            case "rg_to_fsa":
+                rgToFsa(args);
+                break;
+            case "cfg_to_pda":
+                cfgToPda(args);
+                break;
+            case "pda_to_cfg":
+                pdaToCfg(args);
+                break;
+            case "to_dot":
+                toDot(args);
+                break;
+            case "fsa_to_re":
+                fsaToRe(args);
+                break;
+            case "first_follow":
+                firstFollow(args);
+                break;
+            case "lsystem_expand":
+                lsystemExpand(args);
+                break;
+            case "combine":
+                combineAutomata(args);
+                break;
+            default:
+                throw new BridgeException("unknown_command", "Unknown command: " + command);
+        }
+    }
+
+    private static void handleSimulateBatchCli(String[] args) throws Exception {
+        if (args.length < 2) {
+            throw new BridgeException("invalid_argument", "Usage: simulate_batch <file.jff> [--acceptance final_state|empty_stack] [inputs...]");
+        }
+        String model = args[1];
+        String explicitAcceptance = null;
+        List<String> inputs = new ArrayList<>();
+        for (int i = 2; i < args.length; i++) {
+            if ("--acceptance".equalsIgnoreCase(args[i]) || "--acceptance-mode".equalsIgnoreCase(args[i]) || "-a".equalsIgnoreCase(args[i])) {
+                if (i + 1 < args.length) {
+                    explicitAcceptance = args[++i];
+                }
+            } else if (args[i].startsWith("--acceptance=")) {
+                explicitAcceptance = args[i].substring("--acceptance=".length());
+            } else if (args[i].startsWith("--acceptance-mode=")) {
+                explicitAcceptance = args[i].substring("--acceptance-mode=".length());
+            } else {
+                inputs.add(args[i]);
+            }
+        }
+        simulateBatch(model, inputs, explicitAcceptance);
+    }
+
+    private static void simulateBatch(String modelPath, List<String> inputs, String explicitAcceptance) throws Exception {
+        File file = new File(modelPath);
+        if (!file.exists()) {
+            throw new BridgeException("file_not_found", "File not found: " + file.getAbsolutePath());
+        }
+
+        Serializable obj;
+        try {
+            obj = decodeFile(file);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to decode model: " + e.getMessage());
+        }
+
+        if (!(obj instanceof Automaton)) {
+            throw new BridgeException("unsupported_operation", "File is not an automaton: " + obj.getClass().getName());
+        }
+
+        Automaton auto = (Automaton) obj;
+        String pdaMode = null;
+        if (auto instanceof PushdownAutomaton) {
+            pdaMode = resolvePdaAcceptanceMode(file, explicitAcceptance);
+        }
+
+        AutomatonSimulator sim = getAutomatonSimulator(auto, pdaMode);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"model\":\"").append(escapeJson(file.getAbsolutePath())).append("\",");
+        if (pdaMode != null) {
+            sb.append("\"acceptanceMode\":\"").append(pdaMode).append("\",");
+        }
+        sb.append("\"total\":").append(inputs.size()).append(",");
+        sb.append("\"verdicts\":[");
+        for (int i = 0; i < inputs.size(); i++) {
+            if (i > 0) sb.append(",");
+            boolean accepted = false;
+            try {
+                accepted = runSimulation(sim, auto, inputs.get(i), 10000, pdaMode);
+            } catch (Exception e) {
+                accepted = false;
+            }
+            sb.append(accepted);
+        }
+        sb.append("]}");
+        System.out.println(sb.toString());
+        System.out.flush();
+    }
+
+    private static void handleThrowable(Throwable t) {
+        if (t instanceof BridgeException) {
+            BridgeException be = (BridgeException) t;
+            printError(be.getErrorType(), be.getMessage());
+        } else {
+            String msg = t.getMessage();
+            if (msg == null || msg.isEmpty()) msg = t.getClass().getSimpleName();
+            printError("execution_error", msg);
+        }
+    }
+
+    public static void printError(String errorType, String msg) {
+        System.err.println("[" + errorType + "] " + msg);
+        System.out.println("{\"error\":\"" + escapeJson(msg) + "\",\"error_type\":\"" + escapeJson(errorType) + "\"}");
+        System.out.flush();
+    }
+
+    public static void printError(String msg) {
+        printError("error", msg);
+    }
+
+    private static Map<String, Object> parseSimpleJson(String json) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        int i = 0;
+        int len = json.length();
+        while (i < len) {
+            int q1 = json.indexOf('"', i);
+            if (q1 == -1) break;
+            int q2 = findNextQuote(json, q1 + 1);
+            if (q2 == -1) break;
+            String key = unescapeJson(json.substring(q1 + 1, q2));
+            int colon = json.indexOf(':', q2 + 1);
+            if (colon == -1) break;
+            int vStart = colon + 1;
+            while (vStart < len && Character.isWhitespace(json.charAt(vStart))) vStart++;
+            if (vStart >= len) break;
+            char firstChar = json.charAt(vStart);
+            if (firstChar == '"') {
+                int vEnd = findNextQuote(json, vStart + 1);
+                if (vEnd == -1) break;
+                String val = unescapeJson(json.substring(vStart + 1, vEnd));
+                map.put(key, val);
+                i = vEnd + 1;
+            } else if (firstChar == '[') {
+                List<String> arr = new ArrayList<>();
+                int cur = vStart + 1;
+                while (cur < len) {
+                    while (cur < len && Character.isWhitespace(json.charAt(cur))) cur++;
+                    if (cur < len && json.charAt(cur) == ']') {
+                        cur++;
+                        break;
+                    }
+                    if (cur < len && json.charAt(cur) == ',') {
+                        cur++;
+                        continue;
+                    }
+                    if (cur < len && json.charAt(cur) == '"') {
+                        int strEnd = findNextQuote(json, cur + 1);
+                        if (strEnd == -1) break;
+                        arr.add(unescapeJson(json.substring(cur + 1, strEnd)));
+                        cur = strEnd + 1;
+                    } else {
+                        cur++;
+                    }
+                }
+                map.put(key, arr);
+                i = cur;
+            } else {
+                int comma = json.indexOf(',', vStart);
+                int brace = json.indexOf('}', vStart);
+                int end = (comma != -1 && comma < brace) ? comma : brace;
+                if (end == -1) end = len;
+                String val = json.substring(vStart, end).trim();
+                map.put(key, val);
+                i = end + 1;
+            }
+        }
+        return map;
+    }
+
+    private static int findNextQuote(String s, int start) {
+        for (int i = start; i < s.length(); i++) {
+            if (s.charAt(i) == '"' && s.charAt(i - 1) != '\\') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static String unescapeJson(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\' && i + 1 < s.length()) {
+                char next = s.charAt(++i);
+                switch (next) {
+                    case '"': sb.append('"'); break;
+                    case '\\': sb.append('\\'); break;
+                    case '/': sb.append('/'); break;
+                    case 'b': sb.append('\b'); break;
+                    case 'f': sb.append('\f'); break;
+                    case 'n': sb.append('\n'); break;
+                    case 'r': sb.append('\r'); break;
+                    case 't': sb.append('\t'); break;
+                    case 'u':
+                        if (i + 4 < s.length()) {
+                            try {
+                                int code = Integer.parseInt(s.substring(i + 1, i + 5), 16);
+                                sb.append((char) code);
+                                i += 4;
+                            } catch (Exception e) {
+                                sb.append("\\u");
+                            }
+                        } else {
+                            sb.append("\\u");
+                        }
+                        break;
+                    default: sb.append(next); break;
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     // -------------------------------------------------------------
@@ -1379,12 +1652,6 @@ public class JFLAPBridge {
         sb.append("\"outputFile\":\"").append(escapeJson(out.getAbsolutePath())).append("\"");
         sb.append("}");
         System.out.println(sb.toString());
-    }
-
-
-    private static void printError(String msg) {
-        System.err.println(msg);
-        System.out.println("{\"error\":\"" + escapeJson(msg) + "\"}");
     }
 
     public static String escapeJson(String s) {
