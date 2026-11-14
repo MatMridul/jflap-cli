@@ -81,6 +81,6 @@ Simulating non-deterministic pushdown automata with $\lambda$-transitions or non
 
 ### C. Automated Compilation & Zero-Config Setup
 Both `jflap_cli.py` and `jflap_mcp.py` implement `ensure_environment()`:
-- Automatically detects if `JFLAP7.1.jar` exists; if missing, securely downloads it from Duke University.
+- Automatically detects if `third_party/jflap/JFLAP7.1.jar` exists; if missing, securely downloads it from Duke University.
 - Detects if `JFLAPBridge.class` is absent or outdated compared to `JFLAPBridge.java` and invokes `javac` automatically.
 - No build step or manual compilation is required after cloning.

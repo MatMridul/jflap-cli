@@ -1,6 +1,7 @@
 # Java
 *.class
 JFLAP7.1_With_Source.jar
+third_party/jflap/JFLAP7.1_With_Source.jar
 
 # Python
 __pycache__/

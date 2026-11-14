@@ -206,7 +206,7 @@ Always prefer simulating and proving equivalence programmatically using these to
 The server is self-bootstrapping:
 1. **Java 8+**: JRE or JDK (`java -version`).
 2. **Python 3.8+**: Standard library only; no external pip dependencies are strictly required for the core MCP server.
-3. **Automatic Compilation**: When `jflap_mcp.py` starts, it automatically detects if `JFLAP7.1.jar` is present (downloading it from official Duke servers if missing) and runs `javac JFLAPBridge.java` if `JFLAPBridge.class` is absent or out-of-date.
+3. **Automatic Compilation**: When `jflap_mcp.py` starts, it automatically detects if `third_party/jflap/JFLAP7.1.jar` is present (downloading it from official Duke servers if missing) and runs `javac JFLAPBridge.java` if `JFLAPBridge.class` is absent or out-of-date.
 
 ---
 

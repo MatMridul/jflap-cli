@@ -276,7 +276,7 @@ class TestJFLAPSuite(unittest.TestCase):
             proc.stdin.flush()
             tools_res = json.loads(proc.stdout.readline())
             tools = tools_res["result"]["tools"]
-            self.assertEqual(len(tools), 10)
+            self.assertEqual(len(tools), 13)
 
             # 3. tools/call jflap_simulate
             call_req = {
@@ -317,6 +317,63 @@ class TestJFLAPSuite(unittest.TestCase):
             ls_data = json.loads(ls_res["result"]["content"][0]["text"])
             self.assertTrue(ls_data["success"])
             self.assertEqual(ls_data["expandedString"], "ABAAB")
+
+            # 5. tools/call jflap_simulate_batch
+            batch_call = {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "jflap_simulate_batch",
+                    "arguments": {
+                        "model": os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff"),
+                        "inputs": ["ab", "xyz"]
+                    }
+                }
+            }
+            proc.stdin.write(json.dumps(batch_call) + "\n")
+            proc.stdin.flush()
+            batch_res = json.loads(proc.stdout.readline())
+            batch_data = json.loads(batch_res["result"]["content"][0]["text"])
+            self.assertEqual(batch_data.get("verdicts"), [True, False])
+
+            # 6. tools/call jflap_export_table
+            tbl_call = {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {
+                    "name": "jflap_export_table",
+                    "arguments": {
+                        "model": os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff")
+                    }
+                }
+            }
+            proc.stdin.write(json.dumps(tbl_call) + "\n")
+            proc.stdin.flush()
+            tbl_res = json.loads(proc.stdout.readline())
+            tbl_data = json.loads(tbl_res["result"]["content"][0]["text"])
+            self.assertEqual(tbl_data.get("type"), "fa")
+            self.assertIn("states", tbl_data)
+
+            # 7. tools/call jflap_equivalence_check
+            eq_call = {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {
+                    "name": "jflap_equivalence_check",
+                    "arguments": {
+                        "modelA": os.path.join(EXAMPLES_DIR, "contains_ab_nfa.jff"),
+                        "modelB": os.path.join(EXAMPLES_DIR, "contains_ab_min_dfa.jff")
+                    }
+                }
+            }
+            proc.stdin.write(json.dumps(eq_call) + "\n")
+            proc.stdin.flush()
+            eq_res = json.loads(proc.stdout.readline())
+            eq_data = json.loads(eq_res["result"]["content"][0]["text"])
+            self.assertTrue(eq_data.get("equivalent"))
 
         finally:
             if proc.stdin and not proc.stdin.closed:
