@@ -139,7 +139,11 @@ public class JFLAPBridge {
                 minimize(args);
                 break;
             case "fsa_equals":
-                fsaEquals(args);
+            case "equivalence_check":
+                equivalenceCheck(args);
+                break;
+            case "export_table":
+                exportTable(args);
                 break;
             case "grammar_parse":
                 grammarParse(args);
@@ -840,40 +844,278 @@ public class JFLAPBridge {
     }
 
     // -------------------------------------------------------------
-    // FSA Equivalence Check
+    // Export Transition Table (DFA/NFA)
+    // -------------------------------------------------------------
+    private static void exportTable(String[] args) throws Exception {
+        if (args.length < 2) {
+            throw new BridgeException("invalid_argument", "Usage: export_table <file.jff>");
+        }
+        File file = new File(args[1]);
+        if (!file.exists()) {
+            throw new BridgeException("file_not_found", "File not found: " + file.getAbsolutePath());
+        }
+        Serializable obj;
+        try {
+            obj = decodeFile(file);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to parse model file: " + e.getMessage());
+        }
+        if (!(obj instanceof FiniteStateAutomaton)) {
+            String typeStr = "unknown";
+            if (obj instanceof PushdownAutomaton) typeStr = "pda";
+            else if (obj instanceof TuringMachine) typeStr = "turing";
+            else if (obj instanceof Grammar) typeStr = "grammar";
+            else if (obj != null) typeStr = obj.getClass().getSimpleName();
+            throw new BridgeException("unsupported_model_type",
+                "Cannot export transition table: model is of type '" + typeStr + "'. Only DFA/NFA finite state automata are supported.");
+        }
+
+        FiniteStateAutomaton fsa = (FiniteStateAutomaton) obj;
+        Set<String> alphabetSet = new TreeSet<>();
+        List<String> stateNames = new ArrayList<>();
+        List<String> acceptingStates = new ArrayList<>();
+        State init = fsa.getInitialState();
+        String startState = init != null ? getStateName(init) : "";
+
+        for (State s : fsa.getStates()) {
+            String name = getStateName(s);
+            stateNames.add(name);
+            if (fsa.isFinalState(s)) {
+                acceptingStates.add(name);
+            }
+        }
+
+        boolean isDeterministic = true;
+        try {
+            NondeterminismDetector d = NondeterminismDetectorFactory.getDetector(fsa);
+            if (d != null) {
+                State[] nd = d.getNondeterministicStates(fsa);
+                if (nd.length > 0) isDeterministic = false;
+            }
+        } catch (Exception ignored) {}
+
+        List<Map<String, String>> transitionsList = new ArrayList<>();
+        for (Transition t : fsa.getTransitions()) {
+            FSATransition ft = (FSATransition) t;
+            String lbl = ft.getLabel();
+            if (lbl == null) lbl = "";
+            if (!lbl.isEmpty()) {
+                alphabetSet.add(lbl);
+            }
+            Map<String, String> tr = new LinkedHashMap<>();
+            tr.put("from", getStateName(ft.getFromState()));
+            tr.put("symbol", lbl);
+            tr.put("to", getStateName(ft.getToState()));
+            transitionsList.add(tr);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"model\":\"").append(escapeJson(file.getAbsolutePath())).append("\",");
+        sb.append("\"type\":\"fa\",");
+        sb.append("\"is_deterministic\":").append(isDeterministic).append(",");
+
+        sb.append("\"states\":[");
+        for (int i = 0; i < stateNames.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(stateNames.get(i))).append("\"");
+        }
+        sb.append("],");
+
+        sb.append("\"alphabet\":[");
+        int ai = 0;
+        for (String a : alphabetSet) {
+            if (ai++ > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(a)).append("\"");
+        }
+        sb.append("],");
+
+        sb.append("\"start_state\":\"").append(escapeJson(startState)).append("\",");
+
+        sb.append("\"accepting_states\":[");
+        for (int i = 0; i < acceptingStates.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(acceptingStates.get(i))).append("\"");
+        }
+        sb.append("],");
+
+        sb.append("\"transitions\":[");
+        for (int i = 0; i < transitionsList.size(); i++) {
+            if (i > 0) sb.append(",");
+            Map<String, String> tr = transitionsList.get(i);
+            sb.append("{");
+            sb.append("\"from\":\"").append(escapeJson(tr.get("from"))).append("\",");
+            sb.append("\"symbol\":\"").append(escapeJson(tr.get("symbol"))).append("\",");
+            sb.append("\"to\":\"").append(escapeJson(tr.get("to"))).append("\"");
+            sb.append("}");
+        }
+        sb.append("]");
+
+        sb.append("}");
+        System.out.println(sb.toString());
+        System.out.flush();
+    }
+
+    private static String getStateName(State s) {
+        if (s == null) return "";
+        if (s.getName() != null && !s.getName().trim().isEmpty()) {
+            return s.getName().trim();
+        }
+        return "q" + s.getID();
+    }
+
+    // -------------------------------------------------------------
+    // FSA Equivalence Check (with shortest distinguishing string)
     // -------------------------------------------------------------
     private static void fsaEquals(String[] args) throws Exception {
+        equivalenceCheck(args);
+    }
+
+    private static void equivalenceCheck(String[] args) throws Exception {
         if (args.length < 3) {
-            printError("Usage: fsa_equals <file1.jff> <file2.jff>");
-            System.exit(1);
+            throw new BridgeException("invalid_argument", "Usage: equivalence_check <modelA.jff> <modelB.jff>");
         }
         File f1 = new File(args[1]);
         File f2 = new File(args[2]);
 
-        Serializable o1 = decodeFile(f1);
-        Serializable o2 = decodeFile(f2);
+        if (!f1.exists()) {
+            throw new BridgeException("file_not_found", "Model A not found: " + f1.getAbsolutePath());
+        }
+        if (!f2.exists()) {
+            throw new BridgeException("file_not_found", "Model B not found: " + f2.getAbsolutePath());
+        }
+
+        Serializable o1, o2;
+        try {
+            o1 = decodeFile(f1);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to parse Model A: " + e.getMessage());
+        }
+        try {
+            o2 = decodeFile(f2);
+        } catch (Exception e) {
+            throw new BridgeException("malformed_model", "Failed to parse Model B: " + e.getMessage());
+        }
 
         if (!(o1 instanceof FiniteStateAutomaton) || !(o2 instanceof FiniteStateAutomaton)) {
-            printError("Both files must be Finite State Automata.");
-            System.exit(1);
+            String t1 = o1 instanceof Automaton ? ((Automaton)o1).getClass().getSimpleName() : "non-automaton";
+            String t2 = o2 instanceof Automaton ? ((Automaton)o2).getClass().getSimpleName() : "non-automaton";
+            throw new BridgeException("unsupported_model_type",
+                "Equivalence check is only supported for Finite State Automata. Model A is " + t1 + ", Model B is " + t2 + ".");
         }
 
         FiniteStateAutomaton fsa1 = (FiniteStateAutomaton) o1;
         FiniteStateAutomaton fsa2 = (FiniteStateAutomaton) o2;
 
-        fsa1 = (FiniteStateAutomaton) UselessStatesDetector.cleanAutomaton(fsa1);
-        fsa2 = (FiniteStateAutomaton) UselessStatesDetector.cleanAutomaton(fsa2);
+        // Convert both to DFA
+        NFAToDFA converter = new NFAToDFA();
+        FiniteStateAutomaton dfa1 = converter.convertToDFA(fsa1);
+        FiniteStateAutomaton dfa2 = converter.convertToDFA(fsa2);
 
-        FSAEqualityChecker checker = new FSAEqualityChecker();
-        boolean equals = checker.equals(fsa1, fsa2);
+        // Collect combined alphabet
+        Set<String> alphabet = new TreeSet<>();
+        for (Transition t : dfa1.getTransitions()) {
+            String l = ((FSATransition) t).getLabel();
+            if (l != null && !l.isEmpty()) alphabet.add(l);
+        }
+        for (Transition t : dfa2.getTransitions()) {
+            String l = ((FSATransition) t).getLabel();
+            if (l != null && !l.isEmpty()) alphabet.add(l);
+        }
+
+        // BFS on product automaton to find shortest distinguishing string
+        State init1 = dfa1.getInitialState();
+        State init2 = dfa2.getInitialState();
+        int s1 = init1 != null ? init1.getID() : -1;
+        int s2 = init2 != null ? init2.getID() : -1;
+
+        Queue<Pair> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+        Map<String, String> stringForPair = new HashMap<>();
+
+        Pair startPair = new Pair(s1, s2);
+        queue.add(startPair);
+        visited.add(startPair.key());
+        stringForPair.put(startPair.key(), "");
+
+        boolean equivalent = true;
+        String shortestDistinguishing = null;
+        boolean aAccepts = false;
+        boolean bAccepts = false;
+
+        while (!queue.isEmpty()) {
+            Pair cur = queue.poll();
+            String curStr = stringForPair.get(cur.key());
+
+            boolean acc1 = (cur.a != -1) && isStateFinal(dfa1, cur.a);
+            boolean acc2 = (cur.b != -1) && isStateFinal(dfa2, cur.b);
+
+            if (acc1 != acc2) {
+                equivalent = false;
+                shortestDistinguishing = curStr;
+                aAccepts = acc1;
+                bAccepts = acc2;
+                break;
+            }
+
+            for (String sym : alphabet) {
+                int nextA = stepDfa(dfa1, cur.a, sym);
+                int nextB = stepDfa(dfa2, cur.b, sym);
+                Pair nextPair = new Pair(nextA, nextB);
+                if (!visited.contains(nextPair.key())) {
+                    visited.add(nextPair.key());
+                    stringForPair.put(nextPair.key(), curStr + sym);
+                    queue.add(nextPair);
+                }
+            }
+        }
 
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        sb.append("\"equivalent\":").append(equals).append(",");
+        sb.append("\"equivalent\":").append(equivalent).append(",");
         sb.append("\"file1\":\"").append(escapeJson(f1.getAbsolutePath())).append("\",");
-        sb.append("\"file2\":\"").append(escapeJson(f2.getAbsolutePath())).append("\"");
+        sb.append("\"file2\":\"").append(escapeJson(f2.getAbsolutePath())).append("\",");
+        if (shortestDistinguishing != null) {
+            sb.append("\"shortest_distinguishing_string\":\"").append(escapeJson(shortestDistinguishing)).append("\",");
+            sb.append("\"modelA_accepts\":").append(aAccepts).append(",");
+            sb.append("\"modelB_accepts\":").append(bAccepts);
+        } else {
+            sb.append("\"shortest_distinguishing_string\":null");
+        }
         sb.append("}");
         System.out.println(sb.toString());
+        System.out.flush();
+    }
+
+    private static boolean isStateFinal(FiniteStateAutomaton fsa, int id) {
+        if (id == -1) return false;
+        for (State s : fsa.getFinalStates()) {
+            if (s.getID() == id) return true;
+        }
+        return false;
+    }
+
+    private static int stepDfa(FiniteStateAutomaton dfa, int stateId, String sym) {
+        if (stateId == -1) return -1;
+        State s = null;
+        for (State st : dfa.getStates()) {
+            if (st.getID() == stateId) { s = st; break; }
+        }
+        if (s == null) return -1;
+        for (Transition t : dfa.getTransitionsFromState(s)) {
+            FSATransition ft = (FSATransition) t;
+            if (sym.equals(ft.getLabel())) {
+                return ft.getToState().getID();
+            }
+        }
+        return -1;
+    }
+
+    static class Pair {
+        final int a;
+        final int b;
+        Pair(int a, int b) { this.a = a; this.b = b; }
+        String key() { return a + "," + b; }
     }
 
     // -------------------------------------------------------------

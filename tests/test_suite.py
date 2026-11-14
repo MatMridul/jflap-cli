@@ -387,6 +387,50 @@ class TestJFLAPSuite(unittest.TestCase):
         self.assertEqual(data.get("total"), 5)
         self.assertEqual(data.get("verdicts"), [True, True, False, True, False])
 
+    def test_18_export_table_dfa_and_error_pda(self):
+        """Test jflap_export_table for DFA and structured error for PDA."""
+        dfa_file = os.path.join(EXAMPLES_DIR, "contains_ab_dfa.jff")
+        pda_file = os.path.join(EXAMPLES_DIR, "an_bn_pda.jff")
+
+        # DFA export table
+        res1 = self.run_cli("export-table", dfa_file, "--json")
+        self.assertEqual(res1.returncode, 0)
+        d1 = json.loads(res1.stdout)
+        self.assertEqual(d1.get("type"), "fa")
+        self.assertEqual(sorted(d1.get("alphabet")), ["a", "b"])
+        self.assertIn("q0", d1.get("states"))
+        self.assertIn("q2", d1.get("accepting_states"))
+        self.assertGreater(len(d1.get("transitions")), 0)
+
+        # PDA export table should return structured error
+        res2 = self.run_cli("export-table", pda_file, "--json")
+        self.assertNotEqual(res2.returncode, 0)
+        d2 = json.loads(res2.stdout)
+        self.assertIn("error", d2)
+        self.assertEqual(d2.get("error_type"), "unsupported_model_type")
+
+    def test_19_equivalence_check_and_distinguishing_string(self):
+        """Test equivalence check with shortest distinguishing string."""
+        nfa_file = os.path.join(EXAMPLES_DIR, "contains_ab_nfa.jff")
+        min_dfa_file = os.path.join(EXAMPLES_DIR, "contains_ab_min_dfa.jff")
+        toggle_file = os.path.join(EXAMPLES_DIR, "toggle_dfa.jff")
+
+        # Equivalent models
+        res1 = self.run_cli("equivalence-check", nfa_file, min_dfa_file, "--json")
+        self.assertEqual(res1.returncode, 0)
+        d1 = json.loads(res1.stdout)
+        self.assertTrue(d1.get("equivalent"))
+        self.assertIsNone(d1.get("shortest_distinguishing_string"))
+
+        # Non-equivalent models
+        res2 = self.run_cli("equivalence-check", min_dfa_file, toggle_file, "--json")
+        self.assertEqual(res2.returncode, 0)
+        d2 = json.loads(res2.stdout)
+        self.assertFalse(d2.get("equivalent"))
+        self.assertIsNotNone(d2.get("shortest_distinguishing_string"))
+        self.assertIn("modelA_accepts", d2)
+        self.assertIn("modelB_accepts", d2)
+
 
 if __name__ == "__main__":
     unittest.main()

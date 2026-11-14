@@ -242,6 +242,38 @@ TOOLS = [
         }
     },
     {
+        "name": "jflap_export_table",
+        "description": "Export a plain JSON transition table (states, alphabet, start_state, accepting_states, transitions) for a DFA/NFA model. Returns a structured error for models that cannot be represented as finite state automata.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string",
+                    "description": "Path to the .jff automaton file"
+                }
+            },
+            "required": ["model"]
+        }
+    },
+    {
+        "name": "jflap_equivalence_check",
+        "description": "Verify language equivalence between two automata (modelA, modelB). Returns equivalent boolean, plus the shortest distinguishing string if they differ.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "modelA": {
+                    "type": "string",
+                    "description": "Path to first .jff automaton file"
+                },
+                "modelB": {
+                    "type": "string",
+                    "description": "Path to second .jff automaton file"
+                }
+            },
+            "required": ["modelA", "modelB"]
+        }
+    },
+    {
         "name": "jflap_launch_gui",
         "description": "Launch the interactive JFLAP 7.1 graphical user interface (Swing desktop window), optionally opening a .jff file.",
         "inputSchema": {
@@ -384,6 +416,19 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
                     out_f.write(dot_str)
                 return {"content": [{"type": "text", "text": f"Exported DOT graph to {args['output_file']}"}]}
             return {"content": [{"type": "text", "text": dot_str}]}
+
+        elif name == "jflap_export_table":
+            model = args.get("model") or args.get("file")
+            res = run_bridge("export_table", model)
+            is_err = "error" in res
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}], "isError": is_err}
+
+        elif name == "jflap_equivalence_check":
+            mA = args.get("modelA") or args.get("file1")
+            mB = args.get("modelB") or args.get("file2")
+            res = run_bridge("equivalence_check", mA, mB)
+            is_err = "error" in res
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}], "isError": is_err}
 
         elif name == "jflap_launch_gui":
             cmd = ["java", "-jar", JAR_PATH]

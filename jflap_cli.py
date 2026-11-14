@@ -216,13 +216,19 @@ def handle_fsa(args):
         else:
             print(f"Error: {res.get('error')}", file=sys.stderr)
     elif sub in ("equals", "equivalent"):
-        res = run_bridge("fsa_equals", args.file1, args.file2)
+        res = run_bridge("equivalence_check", args.file1, args.file2)
         if args.json:
             print(json.dumps(res, indent=2))
         elif "equivalent" in res:
             eq = res.get("equivalent")
             msg = "ARE EQUIVALENT (accept the exact same language)" if eq else "ARE NOT EQUIVALENT"
             print(f"Result: The two automata {msg}.")
+            if not eq and res.get("shortest_distinguishing_string") is not None:
+                s = res.get("shortest_distinguishing_string")
+                s_str = f"'{s}'" if s != "" else "λ (empty string)"
+                print(f"Shortest distinguishing string: {s_str}")
+                print(f"  Model A ({os.path.basename(res.get('file1', ''))}): {'ACCEPTED' if res.get('modelA_accepts') else 'REJECTED'}")
+                print(f"  Model B ({os.path.basename(res.get('file2', ''))}): {'ACCEPTED' if res.get('modelB_accepts') else 'REJECTED'}")
         else:
             print(f"Error: {res.get('error')}", file=sys.stderr)
     elif sub == "combine":
@@ -380,6 +386,24 @@ def handle_create(args):
         jflap_builder.build_grammar(prods, args.start, out_path)
         print(f"Created Grammar at: {out_path}")
 
+def handle_export_table(args):
+    res = run_bridge("export_table", args.file)
+    if args.json or "error" in res:
+        print(json.dumps(res, indent=2))
+        if "error" in res:
+            sys.exit(1)
+        return
+
+    print(f"\nTransition Table: {os.path.basename(res.get('model', ''))}")
+    print(f"States    : {', '.join(res.get('states', []))}")
+    print(f"Alphabet  : {', '.join(res.get('alphabet', []))}")
+    print(f"Start     : {res.get('start_state')}")
+    print(f"Accepting : {', '.join(res.get('accepting_states', []))}\n")
+    rows = []
+    for t in res.get("transitions", []):
+        rows.append([t.get("from"), "->", t.get("to"), f"'{t.get('symbol') or 'λ'}'"])
+    print_table(["From", "", "To", "Symbol"], rows)
+
 def handle_lsystem(args):
     sub = args.lsystem_command
     if sub == "expand":
@@ -447,6 +471,19 @@ def main():
     p_tr.add_argument("-a", "--acceptance-mode", dest="acceptance_mode", choices=["final_state", "empty_stack"], help="PDA acceptance mode (default 'final_state' unless declared in model)")
     p_tr.add_argument("--json", action="store_true", help="Output raw JSON")
     p_tr.set_defaults(func=handle_trace)
+
+    # export-table
+    p_tbl = subparsers.add_parser("export-table", help="Export plain JSON transition table for DFA/NFA")
+    p_tbl.add_argument("file", help="Path to .jff file")
+    p_tbl.add_argument("--json", action="store_true", help="Output raw JSON")
+    p_tbl.set_defaults(func=handle_export_table)
+
+    # equivalence-check
+    p_eq_top = subparsers.add_parser("equivalence-check", help="Check language equivalence between two FSAs with shortest distinguishing string")
+    p_eq_top.add_argument("file1", help="First .jff file")
+    p_eq_top.add_argument("file2", help="Second .jff file")
+    p_eq_top.add_argument("--json", action="store_true")
+    p_eq_top.set_defaults(func=lambda args: handle_fsa(argparse.Namespace(fsa_command="equals", **vars(args))))
 
     # fsa operations
     p_fsa = subparsers.add_parser("fsa", help="Finite State Automata operations (NFA->DFA, minimize, equals)")
