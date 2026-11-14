@@ -130,7 +130,11 @@ def handle_inspect(args):
         print_table(["LHS", "", "RHS"], prod_rows)
 
 def handle_simulate(args):
-    res = run_bridge("simulate", args.file, *args.inputs)
+    bridge_args = []
+    if getattr(args, "acceptance_mode", None):
+        bridge_args.extend(["--acceptance", args.acceptance_mode])
+    bridge_args.extend(args.inputs)
+    res = run_bridge("simulate", args.file, *bridge_args)
     if args.json:
         print(json.dumps(res, indent=2))
         return
@@ -138,7 +142,9 @@ def handle_simulate(args):
         print(f"Error: {res['error']}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"\nSimulation Results for: {os.path.basename(res.get('file', ''))}")
+    pda_mode = res.get("acceptanceMode")
+    mode_str = f" [PDA Acceptance: {pda_mode}]" if pda_mode else ""
+    print(f"\nSimulation Results for: {os.path.basename(res.get('file', ''))}{mode_str}")
     rows = []
     has_output = any("output" in r or "finalTape" in r for r in res.get("results", []))
     for r in res.get("results", []):
@@ -155,7 +161,10 @@ def handle_simulate(args):
     print_table(headers, rows)
 
 def handle_trace(args):
-    res = run_bridge("trace", args.file, args.input)
+    bridge_args = [args.input]
+    if getattr(args, "acceptance_mode", None):
+        bridge_args.extend(["--acceptance", args.acceptance_mode])
+    res = run_bridge("trace", args.file, *bridge_args)
     if args.json:
         print(json.dumps(res, indent=2))
         return
@@ -164,7 +173,9 @@ def handle_trace(args):
         sys.exit(1)
 
     inp = res.get("input", "")
-    print(f"\nExecution Trace for Input: '{inp}' on {os.path.basename(res.get('file', ''))}")
+    pda_mode = res.get("acceptanceMode")
+    mode_str = f" [PDA Acceptance: {pda_mode}]" if pda_mode else ""
+    print(f"\nExecution Trace for Input: '{inp}' on {os.path.basename(res.get('file', ''))}{mode_str}")
     print(f"Final Outcome: {'ACCEPTED' if res.get('accepted') else 'REJECTED'}\n")
     
     rows = []
@@ -419,6 +430,7 @@ def main():
     p_sim = subparsers.add_parser("simulate", help="Simulate input strings against an automaton")
     p_sim.add_argument("file", help="Path to .jff file")
     p_sim.add_argument("inputs", nargs="*", default=[""], help="Input strings to simulate")
+    p_sim.add_argument("-a", "--acceptance-mode", dest="acceptance_mode", choices=["final_state", "empty_stack"], help="PDA acceptance mode (default 'final_state' unless declared in model)")
     p_sim.add_argument("--json", action="store_true", help="Output raw JSON")
     p_sim.set_defaults(func=handle_simulate)
 
@@ -426,6 +438,7 @@ def main():
     p_tr = subparsers.add_parser("trace", help="Get step-by-step configuration execution trace")
     p_tr.add_argument("file", help="Path to .jff file")
     p_tr.add_argument("input", nargs="?", default="", help="Input string to trace")
+    p_tr.add_argument("-a", "--acceptance-mode", dest="acceptance_mode", choices=["final_state", "empty_stack"], help="PDA acceptance mode (default 'final_state' unless declared in model)")
     p_tr.add_argument("--json", action="store_true", help="Output raw JSON")
     p_tr.set_defaults(func=handle_trace)
 

@@ -134,6 +134,13 @@ public class JFLAPBridge {
             sb.append("\"category\":\"automaton\",");
             sb.append("\"type\":\"").append(typeStr).append("\",");
 
+            if (auto instanceof PushdownAutomaton) {
+                String declMode = getDeclaredAcceptanceMode(file);
+                if (declMode != null) {
+                    sb.append("\"declaredAcceptanceMode\":\"").append(declMode).append("\",");
+                }
+            }
+
             // States
             sb.append("\"states\":[");
             State[] states = auto.getStates();
@@ -242,7 +249,7 @@ public class JFLAPBridge {
     // -------------------------------------------------------------
     private static void simulate(String[] args) throws Exception {
         if (args.length < 2) {
-            printError("Usage: simulate <file.jff> [input1 input2 ...]");
+            printError("Usage: simulate <file.jff> [--acceptance final_state|empty_stack] [input1 input2 ...]");
             System.exit(1);
         }
         File file = new File(args[1]);
@@ -258,12 +265,28 @@ public class JFLAPBridge {
         }
 
         Automaton auto = (Automaton) obj;
-        AutomatonSimulator sim = getAutomatonSimulator(auto);
-
+        String explicitAcceptance = null;
         List<String> inputs = new ArrayList<>();
         for (int i = 2; i < args.length; i++) {
-            inputs.add(args[i]);
+            if ("--acceptance".equalsIgnoreCase(args[i]) || "--acceptance-mode".equalsIgnoreCase(args[i]) || "-a".equalsIgnoreCase(args[i])) {
+                if (i + 1 < args.length) {
+                    explicitAcceptance = args[++i];
+                }
+            } else if (args[i].startsWith("--acceptance=")) {
+                explicitAcceptance = args[i].substring("--acceptance=".length());
+            } else if (args[i].startsWith("--acceptance-mode=")) {
+                explicitAcceptance = args[i].substring("--acceptance-mode=".length());
+            } else {
+                inputs.add(args[i]);
+            }
         }
+
+        String pdaMode = null;
+        if (auto instanceof PushdownAutomaton) {
+            pdaMode = resolvePdaAcceptanceMode(file, explicitAcceptance);
+        }
+
+        AutomatonSimulator sim = getAutomatonSimulator(auto, pdaMode);
         if (inputs.isEmpty()) {
             inputs.add(""); // Empty string simulation
         }
@@ -271,6 +294,9 @@ public class JFLAPBridge {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append("\"file\":\"").append(escapeJson(file.getAbsolutePath())).append("\",");
+        if (pdaMode != null) {
+            sb.append("\"acceptanceMode\":\"").append(pdaMode).append("\",");
+        }
         sb.append("\"results\":[");
 
         for (int i = 0; i < inputs.size(); i++) {
@@ -278,7 +304,7 @@ public class JFLAPBridge {
             if (i > 0) sb.append(",");
             boolean accepted = false;
             try {
-                accepted = runSimulation(sim, auto, input, 10000);
+                accepted = runSimulation(sim, auto, input, 10000, pdaMode);
             } catch (Exception e) {
                 accepted = false;
             }
@@ -341,11 +367,25 @@ public class JFLAPBridge {
     // -------------------------------------------------------------
     private static void trace(String[] args) throws Exception {
         if (args.length < 2) {
-            printError("Usage: trace <file.jff> [input]");
+            printError("Usage: trace <file.jff> [input] [--acceptance final_state|empty_stack]");
             System.exit(1);
         }
         File file = new File(args[1]);
-        String input = args.length > 2 ? args[2] : "";
+        String input = "";
+        String explicitAcceptance = null;
+        for (int i = 2; i < args.length; i++) {
+            if ("--acceptance".equalsIgnoreCase(args[i]) || "--acceptance-mode".equalsIgnoreCase(args[i]) || "-a".equalsIgnoreCase(args[i])) {
+                if (i + 1 < args.length) {
+                    explicitAcceptance = args[++i];
+                }
+            } else if (args[i].startsWith("--acceptance=")) {
+                explicitAcceptance = args[i].substring("--acceptance=".length());
+            } else if (args[i].startsWith("--acceptance-mode=")) {
+                explicitAcceptance = args[i].substring("--acceptance-mode=".length());
+            } else {
+                input = args[i];
+            }
+        }
 
         Serializable obj = decodeFile(file);
         if (!(obj instanceof Automaton)) {
@@ -354,13 +394,20 @@ public class JFLAPBridge {
         }
 
         Automaton auto = (Automaton) obj;
-        AutomatonSimulator sim = getAutomatonSimulator(auto);
+        String pdaMode = null;
+        if (auto instanceof PushdownAutomaton) {
+            pdaMode = resolvePdaAcceptanceMode(file, explicitAcceptance);
+        }
+        AutomatonSimulator sim = getAutomatonSimulator(auto, pdaMode);
 
         Configuration[] initial = sim.getInitialConfigurations(input);
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append("\"file\":\"").append(escapeJson(file.getAbsolutePath())).append("\",");
         sb.append("\"input\":\"").append(escapeJson(input)).append("\",");
+        if (pdaMode != null) {
+            sb.append("\"acceptanceMode\":\"").append(pdaMode).append("\",");
+        }
 
         if (initial == null || initial.length == 0) {
             sb.append("\"accepted\":false,");
@@ -389,7 +436,7 @@ public class JFLAPBridge {
             Configuration current = currentPath.get(currentPath.size() - 1);
             lastPath = currentPath;
 
-            if (isAcceptingConfig(current, auto)) {
+            if (isAcceptingConfig(current, auto, pdaMode)) {
                 accepted = true;
                 path = currentPath;
                 break;
@@ -419,7 +466,7 @@ public class JFLAPBridge {
             sb.append("\"state\":").append(c.getCurrentState() != null ? c.getCurrentState().getID() : -1).append(",");
             sb.append("\"stateName\":\"").append(c.getCurrentState() != null ? escapeJson(c.getCurrentState().getName()) : "").append("\",");
             sb.append("\"description\":\"").append(escapeJson(c.toString())).append("\",");
-            sb.append("\"isAccept\":").append(isAcceptingConfig(c, auto));
+            sb.append("\"isAccept\":").append(isAcceptingConfig(c, auto, pdaMode));
 
             if (c instanceof FSAConfiguration) {
                 FSAConfiguration fc = (FSAConfiguration) c;
@@ -951,22 +998,88 @@ public class JFLAPBridge {
         System.out.println(sb.toString());
     }
 
-    private static AutomatonSimulator getAutomatonSimulator(Automaton auto) {
+    public static String getDeclaredAcceptanceMode(File file) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(file);
+            Element elem = doc.getDocumentElement();
+            NodeList accNodes = elem.getElementsByTagName("acceptance");
+            if (accNodes.getLength() == 0) accNodes = elem.getElementsByTagName("acceptby");
+            if (accNodes.getLength() == 0) accNodes = elem.getElementsByTagName("accept_by");
+            if (accNodes.getLength() > 0) {
+                String val = accNodes.item(0).getTextContent().trim().toLowerCase();
+                if ("empty_stack".equals(val) || "emptystack".equals(val) || "empty".equals(val)) {
+                    return "empty_stack";
+                }
+                if ("final_state".equals(val) || "finalstate".equals(val) || "final".equals(val)) {
+                    return "final_state";
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private static String resolvePdaAcceptanceMode(File file, String explicitAcceptance) {
+        if (explicitAcceptance != null && !explicitAcceptance.isEmpty()) {
+            String val = explicitAcceptance.trim().toLowerCase();
+            if ("final_state".equals(val) || "finalstate".equals(val) || "final".equals(val)) {
+                return "final_state";
+            }
+            if ("empty_stack".equals(val) || "emptystack".equals(val) || "empty".equals(val)) {
+                return "empty_stack";
+            }
+            printError("Invalid acceptance_mode: '" + explicitAcceptance + "'. Must be 'final_state' or 'empty_stack'.");
+            System.exit(1);
+        }
+        String decl = getDeclaredAcceptanceMode(file);
+        if (decl != null) return decl;
+        return "final_state";
+    }
+
+    private static AutomatonSimulator getAutomatonSimulator(Automaton auto, String pdaAcceptanceMode) {
         if (auto instanceof PushdownAutomaton) {
-            return new HeadlessPDASimulator(auto);
+            int acceptance = "empty_stack".equalsIgnoreCase(pdaAcceptanceMode) ? 0 : 1;
+            return new HeadlessPDASimulator(auto, acceptance);
         }
         return SimulatorFactory.getSimulator(auto);
     }
 
-    private static boolean isAcceptingConfig(Configuration c, Automaton auto) {
+    /*
+     * NOTE on PDA acceptance and HeadlessPDASimulator.myAcceptance:
+     * In JFLAP's original PDAConfiguration.java:
+     *   EMPTY_STACK = 0
+     *   FINAL_STATE = 1
+     * Earlier code flipped myAcceptance to 1 in HeadlessPDASimulator with the comment
+     * "// 1: Final State, 0: Empty Stack". However, because runSimulation() and trace()
+     * relied on a custom isAcceptingConfig() method that directly checked both:
+     *   (pc.getUnprocessedInput().length() == 0 && (auto.isFinalState(...) || pc.getStack().height() == 0))
+     * instead of calling c.isAccept(), changing myAcceptance in HeadlessPDASimulator had NO effect
+     * on execution behavior—only the variable value was changed while isAcceptingConfig applied
+     * an unsound "either/or" check.
+     * Furthermore, JFLAP's built-in PDAConfiguration.isAccept() had a known bug where it checked:
+     *   this.getUnprocessedInput() == "" (using reference equality instead of length() == 0),
+     * which caused empty-stack checks to fail spuriously when strings were not interned.
+     * 
+     * To ensure strict correctness and prevent safety failures in the Chimeric Automaton,
+     * acceptance is now strictly parameter-driven:
+     *   - "final_state": input is fully consumed AND currentState is in F. (Stack contents ignored).
+     *   - "empty_stack": input is fully consumed AND stack height == 0. (State finality ignored).
+     * Both criteria are NEVER allowed at once.
+     */
+    private static boolean isAcceptingConfig(Configuration c, Automaton auto, String pdaAcceptanceMode) {
         if (c == null) return false;
         if (c instanceof PDAConfiguration) {
             PDAConfiguration pc = (PDAConfiguration) c;
-            if (pc.getUnprocessedInput().length() == 0) {
-                if (auto != null && auto.isFinalState(pc.getCurrentState())) return true;
-                if (pc.getStack() != null && pc.getStack().height() == 0) return true;
+            if (pc.getUnprocessedInput().length() != 0) {
+                return false;
             }
-            return false;
+            if ("empty_stack".equalsIgnoreCase(pdaAcceptanceMode)) {
+                return pc.getStack() != null && pc.getStack().height() == 0;
+            } else {
+                // "final_state" (default)
+                return auto != null && auto.isFinalState(pc.getCurrentState());
+            }
         }
         return c.isAccept();
     }
@@ -1036,14 +1149,14 @@ public class JFLAPBridge {
         }
     }
 
-    private static boolean runSimulation(AutomatonSimulator sim, Automaton auto, String input, int maxSteps) {
+    private static boolean runSimulation(AutomatonSimulator sim, Automaton auto, String input, int maxSteps, String pdaAcceptanceMode) {
         Configuration[] initial = sim.getInitialConfigurations(input);
         if (initial == null || initial.length == 0) return false;
 
         Set<String> visited = new HashSet<>();
         Queue<Configuration> queue = new LinkedList<>();
         for (Configuration c : initial) {
-            if (isAcceptingConfig(c, auto)) return true;
+            if (isAcceptingConfig(c, auto, pdaAcceptanceMode)) return true;
             queue.add(c);
             visited.add(c.toString());
         }
@@ -1052,7 +1165,7 @@ public class JFLAPBridge {
         while (!queue.isEmpty() && steps < maxSteps) {
             Configuration curr = queue.poll();
             steps++;
-            if (isAcceptingConfig(curr, auto)) return true;
+            if (isAcceptingConfig(curr, auto, pdaAcceptanceMode)) return true;
 
             // Stack depth protection for PDA
             if (curr instanceof PDAConfiguration) {
@@ -1065,7 +1178,7 @@ public class JFLAPBridge {
             ArrayList<Configuration> nextList = sim.stepConfiguration(curr);
             if (nextList != null) {
                 for (Configuration next : nextList) {
-                    if (isAcceptingConfig(next, auto)) return true;
+                    if (isAcceptingConfig(next, auto, pdaAcceptanceMode)) return true;
                     String repr = next.toString();
                     if (!visited.contains(repr)) {
                         visited.add(repr);

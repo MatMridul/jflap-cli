@@ -329,6 +329,54 @@ class TestJFLAPSuite(unittest.TestCase):
                 proc.kill()
                 proc.wait()
 
+    def test_16_pda_explicit_acceptance_modes(self):
+        """Test strict PDA acceptance modes: final_state vs empty_stack."""
+        final_pda = os.path.join(EXAMPLES_DIR, "pda_final_only.jff")
+        empty_pda = os.path.join(EXAMPLES_DIR, "pda_empty_only.jff")
+        an_bn_pda = os.path.join(EXAMPLES_DIR, "an_bn_pda.jff")
+
+        # 1. pda_final_only: accepts under final_state, rejects under empty_stack
+        res_f1 = self.run_cli("simulate", final_pda, "aabb", "-a", "final_state", "--json")
+        self.assertEqual(res_f1.returncode, 0)
+        d_f1 = json.loads(res_f1.stdout)
+        self.assertEqual(d_f1.get("acceptanceMode"), "final_state")
+        self.assertTrue(d_f1["results"][0]["accepted"])
+
+        res_f2 = self.run_cli("simulate", final_pda, "aabb", "-a", "empty_stack", "--json")
+        self.assertEqual(res_f2.returncode, 0)
+        d_f2 = json.loads(res_f2.stdout)
+        self.assertEqual(d_f2.get("acceptanceMode"), "empty_stack")
+        self.assertFalse(d_f2["results"][0]["accepted"])
+
+        # 2. pda_empty_only: rejects under final_state, accepts under empty_stack
+        res_e1 = self.run_cli("simulate", empty_pda, "aabb", "-a", "final_state", "--json")
+        self.assertEqual(res_e1.returncode, 0)
+        d_e1 = json.loads(res_e1.stdout)
+        self.assertEqual(d_e1.get("acceptanceMode"), "final_state")
+        self.assertFalse(d_e1["results"][0]["accepted"])
+
+        res_e2 = self.run_cli("simulate", empty_pda, "aabb", "-a", "empty_stack", "--json")
+        self.assertEqual(res_e2.returncode, 0)
+        d_e2 = json.loads(res_e2.stdout)
+        self.assertEqual(d_e2.get("acceptanceMode"), "empty_stack")
+        self.assertTrue(d_e2["results"][0]["accepted"])
+
+        # 3. Classic an_bn_pda under both modes
+        res_ab1 = self.run_cli("simulate", an_bn_pda, "aabb", "-a", "final_state", "--json")
+        d_ab1 = json.loads(res_ab1.stdout)
+        self.assertTrue(d_ab1["results"][0]["accepted"])
+
+        res_ab2 = self.run_cli("simulate", an_bn_pda, "aabb", "-a", "empty_stack", "--json")
+        d_ab2 = json.loads(res_ab2.stdout)
+        self.assertTrue(d_ab2["results"][0]["accepted"])
+
+        # 4. Trace reflects explicit acceptance mode
+        tr_f = self.run_cli("trace", final_pda, "aabb", "-a", "empty_stack", "--json")
+        self.assertEqual(tr_f.returncode, 0)
+        d_tr_f = json.loads(tr_f.stdout)
+        self.assertEqual(d_tr_f.get("acceptanceMode"), "empty_stack")
+        self.assertFalse(d_tr_f.get("accepted"))
+
 
 if __name__ == "__main__":
     unittest.main()

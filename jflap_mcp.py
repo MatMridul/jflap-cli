@@ -67,7 +67,7 @@ TOOLS = [
     },
     {
         "name": "jflap_simulate",
-        "description": "Simulate one or more input strings on a JFLAP automaton (DFA, NFA, PDA, Turing Machine, Mealy, Moore). Returns accept/reject verdicts and output strings/final tapes.",
+        "description": "Simulate one or more input strings on a JFLAP automaton (DFA, NFA, PDA, Turing Machine, Mealy, Moore). Returns accept/reject verdicts and output strings/final tapes. For PDAs, acceptance mode can be explicitly set to 'final_state' or 'empty_stack'.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -79,6 +79,11 @@ TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "List of input strings to simulate (e.g. ['ab', 'aabb', ''])"
+                },
+                "acceptance_mode": {
+                    "type": "string",
+                    "enum": ["final_state", "empty_stack"],
+                    "description": "For PDAs: explicit acceptance criterion ('final_state' or 'empty_stack'). Only one criterion is applied."
                 }
             },
             "required": ["file", "inputs"]
@@ -86,7 +91,7 @@ TOOLS = [
     },
     {
         "name": "jflap_trace",
-        "description": "Execute a step-by-step configuration trace of an input string on an automaton. Returns the exact trace of states, remaining input, stack contents (for PDA), or tape contents (for Turing machine).",
+        "description": "Execute a step-by-step configuration trace of an input string on an automaton. Returns the exact trace of states, remaining input, stack contents (for PDA), or tape contents (for Turing machine). For PDAs, acceptance mode can be explicitly set to 'final_state' or 'empty_stack'.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -97,6 +102,11 @@ TOOLS = [
                 "input": {
                     "type": "string",
                     "description": "Input string to trace (default empty string)"
+                },
+                "acceptance_mode": {
+                    "type": "string",
+                    "enum": ["final_state", "empty_stack"],
+                    "description": "For PDAs: explicit acceptance criterion ('final_state' or 'empty_stack')."
                 }
             },
             "required": ["file"]
@@ -267,13 +277,20 @@ def call_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         elif name == "jflap_simulate":
             f = args["file"]
             inputs = args.get("inputs", [""])
-            res = run_bridge("simulate", f, *inputs)
+            bridge_args = []
+            if args.get("acceptance_mode"):
+                bridge_args.extend(["--acceptance", args["acceptance_mode"]])
+            bridge_args.extend(inputs)
+            res = run_bridge("simulate", f, *bridge_args)
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
 
         elif name == "jflap_trace":
             f = args["file"]
             inp = args.get("input", "")
-            res = run_bridge("trace", f, inp)
+            bridge_args = [inp]
+            if args.get("acceptance_mode"):
+                bridge_args.extend(["--acceptance", args["acceptance_mode"]])
+            res = run_bridge("trace", f, *bridge_args)
             return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
 
         elif name == "jflap_fsa_operation":
