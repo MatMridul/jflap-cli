@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<structure>
+	<type>turing</type>
+	<automaton>
+		<!--The list of states.-->
+		<state id="0" name="q0">
+			<x>120.0</x>
+			<y>150.0</y>
+			<initial/>
+		</state>
+		<state id="1" name="q_accept">
+			<x>320.0</x>
+			<y>150.0</y>
+			<final/>
+		</state>
+
+		<!--The list of transitions.-->
+		<!-- Scan right past all 1s -->
+		<transition>
+			<from>0</from><to>0</to>
+			<read>1</read><write>1</write><move>R</move>
+		</transition>
+		<!-- Write extra 1 at the blank cell and halt -->
+		<transition>
+			<from>0</from><to>1</to>
+			<read/><write>1</write><move>R</move>
+		</transition>
+	</automaton>
+</structure>
