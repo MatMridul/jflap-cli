@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>21CSC301T JFLAP Practical Assessment - Set 14 - Mridul Mathur</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  @page {
+    margin: 18mm 15mm 18mm 15mm;
+    size: A4;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #24292e;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+    background: #fff;
+  }
+  h1, h2, h3, h4 {
+    color: #1a202c;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+    margin-top: 24px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 22px; text-align: center; border-bottom: none; }
+  h2 { font-size: 18px; color: #2b6cb0; }
+  h3 { font-size: 15px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  table, th, td {
+    border: 1px solid #dfe2e5;
+  }
+  th, td {
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background-color: #f6f8fa;
+    font-weight: 600;
+  }
+  tr:nth-child(even) {
+    background-color: #fafbfc;
+  }
+  code {
+    background-color: #f0f3f6;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 85%;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  pre {
+    background-color: #f6f8fa;
+    padding: 14px;
+    border-radius: 6px;
+    overflow: auto;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+  blockquote {
+    border-left: 4px solid #0366d6;
+    padding: 0 1em;
+    color: #6a737d;
+    margin: 16px 0;
+  }
+  hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+  }
+</style>
+</head>
+<body>
+<div id="content"></div>
+<script>
+  const rawMd = "# SRM Institute of Science and Technology\n### Department of Computational Intelligence / Computer Science & Engineering\n## 21CSC301T \u2014 Formal Language and Automata Theory\n### JFLAP Practical Assessment \u2014 SET NO. 14 (Units 3\u20135)\n\n| Student Information | Academic & Assessment Details |\n| :--- | :--- |\n| **Student Name:** Mridul Mathur | **Course Code:** 21CSC301T |\n| **Registration / Roll No.:** RA2411026010137 | **Course Title:** Formal Language and Automata Theory |\n| **Section:** AD1 | **Assigned Set Number:** **SET NO. 14** |\n| **Assessment Type:** Practical / Lab Evaluation | **Total Evaluation Marks:** 20 Marks (4 Questions \u00d7 5 Marks) |\n\n---\n\n## Index of Files & Deliverables (Set No. 14)\nAll models have been created, inspected, and verified against JFLAP 7.1:\n\n| Question (Set 14) | Topic | Model Type | Submission File | Status |\n| :--- | :--- | :--- | :--- | :--- |\n| **Q1 (U3)** | $\\{w w^R \\mid w \\in \\{0, 1\\}^*\\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) |  Verified |\n| **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) |  Verified |\n| **Q3 (U4)** | Equal $a$'s and $b$'s in arbitrary order | PDA | [`q3_pda_equal_ab.jff`](./q3_pda_equal_ab.jff) |  Verified |\n| **Q4 (U5)** | Deciding $\\{w w \\mid w \\in \\{0, 1\\}^*\\}$ | Turing Machine | [`q4_tm_ww.jff`](./q4_tm_ww.jff) |  Verified |\n\n---\n\n## Set No. 14 \u2014 Question 1 (Unit 3): CFG for Even-Length Palindromes & Parsing 1001\n\n### 1. Problem Statement\nCreate a Context-Free Grammar (CFG) for the language $L = \\{ w w^R \\mid w \\in \\{0, 1\\}^* \\}$ and parse the input string `1001`. (5 Marks)\n\n### 2. Formal Grammar Definition\nA CFG is defined as a 4-tuple $G = (V, \\Sigma, R, S)$:\n- **Variables ($V$):** $\\{ S \\}$\n- **Terminals ($\\Sigma$):** $\\{ 0, 1 \\}$\n- **Start Variable:** $S$\n- **Production Rules ($R$):**\n  1. $S \\to 0 S 0$\n  2. $S \\to 1 S 1$\n  3. $S \\to \\lambda$ (empty string $\\epsilon$)\n\n### 3. Derivation of `1001`\nTo derive the string `1001`:\n$$\\begin{aligned}\nS &\\implies 1 S 1 && \\text{(Rule 2: } S \\to 1S1\\text{)} \\\\\n  &\\implies 1 0 S 0 1 && \\text{(Rule 1: } S \\to 0S0\\text{)} \\\\\n  &\\implies 1 0 \\lambda 0 1 && \\text{(Rule 3: } S \\to \\lambda\\text{)} \\\\\n  &= 1001 && \\text{(Yield)}\n\\end{aligned}$$\n\n### 4. Test Suite Execution Evidence\nVerified via JFLAP 7.1 Headless CYK / Brute-Force Parser:\n\n| String | Type | Expected | JFLAP Parser Result | Status |\n| :--- | :--- | :--- | :--- | :--- |\n| `1001` | Target ($w=10$) | ACCEPT | **ACCEPTED** |  PASS |\n| `00` | Palindrome ($w=0$) | ACCEPT | **ACCEPTED** |  PASS |\n| `11` | Palindrome ($w=1$) | ACCEPT | **ACCEPTED** |  PASS |\n| `0110` | Palindrome ($w=01$) | ACCEPT | **ACCEPTED** |  PASS |\n| `110011`| Palindrome ($w=110$)| ACCEPT | **ACCEPTED** |  PASS |\n| `101` | Odd palindrome | REJECT | **REJECTED** |  PASS |\n| `1010` | Asymmetric | REJECT | **REJECTED** |  PASS |\n| `110` | Asymmetric | REJECT | **REJECTED** |  PASS |\n| `010` | Odd length | REJECT | **REJECTED** |  PASS |\n\n---\n\n## Set No. 14 \u2014 Question 2 (Unit 4): PDA for Nested `()`, `[]`, and `{}` Bracket Pairs\n\n### 1. Problem Statement\nConstruct a Pushdown Automaton (PDA) recognizing the Dyck language of correctly nested and matched parentheses `()`, square brackets `[]`, and curly braces `{}`. (5 Marks)\n\n### 2. Formal Definition\nA PDA is defined as a 7-tuple $M = (Q, \\Sigma, \\Gamma, \\delta, q_0, Z_0, F)$:\n- **States ($Q$):** $\\{ q_0, q_1, q_2 \\}$\n- **Input Alphabet ($\\Sigma$):** $\\{ (, ), [, ], \\{, \\} \\}$\n- **Stack Alphabet ($\\Gamma$):** $\\{ Z, (, [, \\{ \\}$ ($Z$ is the initial stack bottom marker)\n- **Start State:** $q_0$\n- **Initial Stack Symbol:** $Z$\n- **Final States ($F$):** $\\{ q_2 \\}$\n\n### 3. Transition Function ($\\delta$)\n- **Initialization:**\n  - $\\delta(q_0, \\lambda, Z) = \\{ (q_1, Z) \\}$ (Start processing)\n  - $\\delta(q_0, \\lambda, Z) = \\{ (q_2, Z) \\}$ (Accept empty string $\\epsilon$)\n- **Push Transitions (on reading any opening bracket):**\n  - $\\delta(q_1, (, X) = \\{ (q_1, (X) \\}$ for all $X \\in \\{ Z, (, [, \\{ \\}$\n  - $\\delta(q_1, [, X) = \\{ (q_1, [X) \\}$ for all $X \\in \\{ Z, (, [, \\{ \\}$\n  - $\\delta(q_1, \\{, X) = \\{ (q_1, \\{X) \\}$ for all $X \\in \\{ Z, (, [, \\{ \\}$\n- **Pop Transitions (matching closing brackets):**\n  - $\\delta(q_1, ), () = \\{ (q_1, \\lambda) \\}$\n  - $\\delta(q_1, ], [) = \\{ (q_1, \\lambda) \\}$\n  - $\\delta(q_1, \\}, \\{) = \\{ (q_1, \\lambda) \\}$\n- **Acceptance:**\n  - $\\delta(q_1, \\lambda, Z) = \\{ (q_2, Z) \\}$ (All open brackets resolved; enter final state $q_2$)\n\n### 4. Step-by-Step Configuration Trace for `([])`\n$$\\begin{array}{ccllc}\n\\hline\n\\textbf{Step} & \\textbf{State} & \\textbf{Remaining Input} & \\textbf{Stack} & \\textbf{Action / Rule} \\\\\n\\hline\n0 & q_0 & \\text{'([])'} & [Z] & \\text{Initial configuration} \\\\\n1 & q_1 & \\text{'([])'} & [Z] & \\delta(q_0, \\lambda, Z) \\to (q_1, Z) \\\\\n2 & q_1 & \\text{'[])'} & [(Z] & \\text{Read '(', push onto stack} \\\\\n3 & q_1 & \\text{'])'} & [[(Z] & \\text{Read '[', push onto stack} \\\\\n4 & q_1 & \\text{')'} & [(Z] & \\text{Read ']', matches '[' } \\implies \\text{pop} \\\\\n5 & q_1 & \\text{''} & [Z] & \\text{Read ')', matches '(' } \\implies \\text{pop} \\\\\n6 & q_2 & \\text{''} & [Z] & \\delta(q_1, \\lambda, Z) \\to (q_2, Z) \\implies \\textbf{ACCEPT (Final State)} \\\\\n\\hline\n\\end{array}$$\n\n### 5. Test Suite Execution Evidence\n\n| Input String | Description | Expected | JFLAP PDA Result | Status |\n| :--- | :--- | :--- | :--- | :--- |\n| `()` | Single pair | ACCEPT | **ACCEPTED** |  PASS |\n| `([])` | Nested bracket | ACCEPT | **ACCEPTED** |  PASS |\n| `{[()]}` | All three nested | ACCEPT | **ACCEPTED** |  PASS |\n| `(){}[()]` | Concatenated pairs | ACCEPT | **ACCEPTED** |  PASS |\n| `(]` | Mismatched closing | REJECT | **REJECTED** |  PASS |\n| `([)]` | Cross-nested | REJECT | **REJECTED** |  PASS |\n| `(((` | Unclosed brackets | REJECT | **REJECTED** |  PASS |\n| `())` | Excess closing | REJECT | **REJECTED** |  PASS |\n| `}{` | Inverted order | REJECT | **REJECTED** |  PASS |\n\n---\n\n## Set No. 14 \u2014 Question 3 (Unit 4): PDA for Equal Numbers of $a$ and $b$ in Arbitrary Order\n\n### 1. Problem Statement\nConstruct a Pushdown Automaton (PDA) for the language $L = \\{ w \\in \\{a, b\\}^* \\mid N_a(w) = N_b(w) \\}$, where $a$'s and $b$'s appear in arbitrary order. (5 Marks)\n\n### 2. Formal Definition\nA PDA is defined as a 7-tuple $M = (Q, \\Sigma, \\Gamma, \\delta, q_0, Z_0, F)$:\n- **States ($Q$):** $\\{ q_0, q_1, q_2 \\}$\n- **Input Alphabet ($\\Sigma$):** $\\{ a, b \\}$\n- **Stack Alphabet ($\\Gamma$):** $\\{ Z, a, b \\}$ ($Z$ marks the balanced stack bottom)\n- **Start State:** $q_0$\n- **Initial Stack Symbol:** $Z$\n- **Final States ($F$):** $\\{ q_2 \\}$\n\n### 3. Transition Function ($\\delta$)\n- **Initialization & Empty String:**\n  - $\\delta(q_0, \\lambda, Z) = \\{ (q_1, Z), (q_2, Z) \\}$\n- **When Stack is Balanced (Top is $Z$):**\n  - $\\delta(q_1, a, Z) = \\{ (q_1, aZ) \\}$ (Excess of $a$)\n  - $\\delta(q_1, b, Z) = \\{ (q_1, bZ) \\}$ (Excess of $b$)\n- **When Top of Stack is $a$ (Excess of $a$'s so far):**\n  - $\\delta(q_1, a, a) = \\{ (q_1, aa) \\}$ (Accumulate more $a$)\n  - $\\delta(q_1, b, a) = \\{ (q_1, \\lambda) \\}$ (Incoming $b$ cancels an $a$)\n- **When Top of Stack is $b$ (Excess of $b$'s so far):**\n  - $\\delta(q_1, b, b) = \\{ (q_1, bb) \\}$ (Accumulate more $b$)\n  - $\\delta(q_1, a, b) = \\{ (q_1, \\lambda) \\}$ (Incoming $a$ cancels a $b$)\n- **Acceptance:**\n  - $\\delta(q_1, \\lambda, Z) = \\{ (q_2, Z) \\}$ (All $a$'s and $b$'s matched; enter final state $q_2$)\n\n### 4. Step-by-Step Configuration Trace for `baab`\n$$\\begin{array}{ccllc}\n\\hline\n\\textbf{Step} & \\textbf{State} & \\textbf{Remaining Input} & \\textbf{Stack} & \\textbf{Action / Rule} \\\\\n\\hline\n0 & q_0 & \\text{'baab'} & [Z] & \\text{Start configuration} \\\\\n1 & q_1 & \\text{'baab'} & [Z] & \\delta(q_0, \\lambda, Z) \\to (q_1, Z) \\\\\n2 & q_1 & \\text{'aab'} & [bZ] & \\text{Read 'b', push 'bZ'} \\\\\n3 & q_1 & \\text{'ab'} & [Z] & \\text{Read 'a', pop 'b' } \\implies \\text{balanced} \\\\\n4 & q_1 & \\text{'b'} & [aZ] & \\text{Read 'a', push 'aZ'} \\\\\n5 & q_1 & \\text{''} & [Z] & \\text{Read 'b', pop 'a' } \\implies \\text{balanced} \\\\\n6 & q_2 & \\text{''} & [Z] & \\delta(q_1, \\lambda, Z) \\to (q_2, Z) \\implies \\textbf{ACCEPT} \\\\\n\\hline\n\\end{array}$$\n\n### 5. Test Suite Execution Evidence\n\n| Input String | Counts ($N_a, N_b$) | Expected | JFLAP PDA Result | Status |\n| :--- | :--- | :--- | :--- | :--- |\n| `ab` | (1, 1) | ACCEPT | **ACCEPTED** |  PASS |\n| `ba` | (1, 1) | ACCEPT | **ACCEPTED** |  PASS |\n| `aabb` | (2, 2) | ACCEPT | **ACCEPTED** |  PASS |\n| `abab` | (2, 2) | ACCEPT | **ACCEPTED** |  PASS |\n| `bbaa` | (2, 2) | ACCEPT | **ACCEPTED** |  PASS |\n| `baab` | (2, 2) | ACCEPT | **ACCEPTED** |  PASS |\n| `ababbaba` | (4, 4) | ACCEPT | **ACCEPTED** |  PASS |\n| `a` | (1, 0) | REJECT | **REJECTED** |  PASS |\n| `b` | (0, 1) | REJECT | **REJECTED** |  PASS |\n| `aab` | (2, 1) | REJECT | **REJECTED** |  PASS |\n| `abb` | (1, 2) | REJECT | **REJECTED** |  PASS |\n| `aaabb` | (3, 2) | REJECT | **REJECTED** |  PASS |\n| `bba` | (1, 2) | REJECT | **REJECTED** |  PASS |\n\n---\n\n## Set No. 14 \u2014 Question 4 (Unit 5): Turing Machine Deciding $\\{w w \\mid w \\in \\{0, 1\\}^*\\}$\n\n### 1. Problem Statement\nConstruct a Turing Machine (TM) deciding the non-context-free language $L = \\{ w w \\mid w \\in \\{0, 1\\}^* \\}$. (5 Marks)\n\n### 2. Algorithm & Machine Architecture\nA deterministic 1-tape Turing Machine $M = (Q, \\Sigma, \\Gamma, \\delta, q_0, \\square, F)$:\n- **Input Alphabet ($\\Sigma$):** $\\{ 0, 1 \\}$\n- **Tape Alphabet ($\\Gamma$):** $\\{ 0, 1, X, Y, A, B, \\square \\}$\n  - $X, Y$: Marked symbols for first half (representing $0$ and $1$).\n  - $A, B$: Marked symbols for second half (representing $0$ and $1$).\n  - $\\square$: Blank cell.\n- **Start State:** $q_0$\n- **Accept State ($F$):** $\\{ q_{12} \\}$ (or `q_accept`)\n\n### 3. Execution Phases\n1. **Phase 1: Center Detection (Even-Length & Midpoint Partitioning):**\n   - Mark leftmost symbol (`0` $\\to X$, `1` $\\to Y$).\n   - Scan right to the last unmarked symbol, marking it (`0` $\\to A$, `1` $\\to B$).\n   - Scan left to the next unmarked symbol and repeat.\n   - If an odd symbol has no partner $\\implies$ halt without accepting (**REJECT**).\n   - When all symbols are paired, the first half consists of $X, Y$ and the second half consists of $A, B$.\n   - Rewind to tape start, restoring $X \\to 0$ and $Y \\to 1$. Tape is now $w$ followed by second-half marked $w$ ($A, B$).\n2. **Phase 2: Character-by-Character Matching:**\n   - Read first unprocessed symbol from first half:\n     - If `0`: mark as $X$, scan right past first half to verify the first unprocessed second-half symbol is $A$. Mark $A \\to X$.\n     - If `1`: mark as $Y$, scan right past first half to verify the first unprocessed second-half symbol is $B$. Mark $B \\to Y$.\n   - Return left to the next unprocessed first-half symbol.\n   - Repeat until all symbols in the first half are processed.\n3. **Phase 3: Final Acceptance:**\n   - Verify all second-half symbols have been matched (only $X, Y$ remain before blank $\\square$).\n   - Transition to $q_{12}$ (`q_accept`) $\\implies$ **ACCEPT**.\n\n### 4. Step-by-Step Configuration Trace for `0101`\n$$\\begin{array}{ccllc}\n\\hline\n\\textbf{Step} & \\textbf{State} & \\textbf{Action} & \\textbf{Tape State} & \\textbf{Accept?} \\\\\n\\hline\n0 & q_0 & \\text{Read '0'} \\to \\text{write 'X', move R} & \\text{[?0101?]} & \\\\\n1\\text{--}4 & q_{\\text{find\\_end}} & \\text{Move right to end of tape} & \\text{[?X101?]} & \\\\\n5 & q_{\\text{mark\\_right}} & \\text{Read '1'} \\to \\text{write 'B', move L} & \\text{[?X10B?]} & \\\\\n6\\text{--}8 & q_{\\text{return\\_left}} & \\text{Move left back to 'X'} & \\text{[?X10B?]} & \\\\\n9 & q_{\\text{next\\_left}} & \\text{Read '1'} \\to \\text{write 'Y', move R} & \\text{[?XY0B?]} & \\\\\n10\\text{--}11 & q_{\\text{find\\_end}} & \\text{Move right until 'B'} & \\text{[?XY0B?]} & \\\\\n12 & q_{\\text{mark\\_right}} & \\text{Read '0'} \\to \\text{write 'A', move L} & \\text{[?XYAB?]} & \\\\\n13\\text{--}14 & q_{\\text{return\\_left}} & \\text{Move left to 'Y'} & \\text{[?XYAB?]} & \\\\\n15 & q_{\\text{next\\_left}} & \\text{Sees 'A'} \\implies \\textbf{Midpoint Found!} & \\text{[?XYAB?]} & \\\\\n16\\text{--}18 & q_{\\text{rewind}} & \\text{Restore } Y \\to 1, X \\to 0 & \\text{[?01AB?]} & \\\\\n19\\text{--}25 & q_{\\text{match\\_0}} & \\text{Match 1st '0' with 'A' } \\implies \\text{mark both X} & \\text{[?X1XB?]} & \\\\\n26\\text{--}36 & q_{\\text{match\\_1}} & \\text{Match 2nd '1' with 'B' } \\implies \\text{mark both Y} & \\text{[?XYXY?]} & \\\\\n37 & q_{\\text{accept}} & \\text{Hits } \\square \\text{ with all matched} & \\text{[?XYXY??]} & \\textbf{YES} \\\\\n\\hline\n\\end{array}$$\n\n### 5. Test Suite Execution Evidence\n\n| Input String | Length | $w$ | Expected | JFLAP TM Result | Final Tape | Status |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n| `00` | 2 | `0` | ACCEPT | **ACCEPTED** | `?XX??` |  PASS |\n| `11` | 2 | `1` | ACCEPT | **ACCEPTED** | `?YY??` |  PASS |\n| `0101` | 4 | `01` | ACCEPT | **ACCEPTED** | `?XYXY??` |  PASS |\n| `1010` | 4 | `10` | ACCEPT | **ACCEPTED** | `?YXYX??` |  PASS |\n| `110110` | 6 | `110` | ACCEPT | **ACCEPTED** | `?YYXYYX??` |  PASS |\n| `001001` | 6 | `001` | ACCEPT | **ACCEPTED** | `?XXYXXY??` |  PASS |\n| `0` | 1 | - | REJECT | **REJECTED** | `X?` (Odd length) |  PASS |\n| `1` | 1 | - | REJECT | **REJECTED** | `Y?` (Odd length) |  PASS |\n| `01` | 2 | - | REJECT | **REJECTED** | `?XB?` ($0 \\ne 1$) |  PASS |\n| `0110` | 4 | - | REJECT | **REJECTED** | `?X1BA?` ($ww^R$) |  PASS |\n| `1001` | 4 | - | REJECT | **REJECTED** | `?Y0AB?` ($ww^R$) |  PASS |\n| `010` | 3 | - | REJECT | **REJECTED** | `XYA?` (Odd length) |  PASS |\n| `110` | 3 | - | REJECT | **REJECTED** | `YYA?` (Odd length) |  PASS |\n| `01011` | 5 | - | REJECT | **REJECTED** | `XYXBB?` (Odd length)|  PASS |\n\n---\n\n## Instructions for Opening in Desktop JFLAP (GUI)\n\nIf your instructor or lab submission portal requires visual screenshots of the canvas:\n1. Ensure Java is installed on your machine.\n2. From the repository directory, open any model in the official JFLAP desktop window:\n   ```bash\n   # Open Question 1 CFG\n   jflap gui C:\\Users\\mridu\\jflap-assignment\\q1_cfg_wwR.jff\n\n   # Open Question 2 PDA\n   jflap gui C:\\Users\\mridu\\jflap-assignment\\q2_pda_brackets.jff\n\n   # Open Question 3 PDA\n   jflap gui C:\\Users\\mridu\\jflap-assignment\\q3_pda_equal_ab.jff\n\n   # Open Question 4 Turing Machine\n   jflap gui C:\\Users\\mridu\\jflap-assignment\\q4_tm_ww.jff\n   ```\n3. In JFLAP:\n   - Navigate to **Input > Multiple Run** (or **Step with State**).\n   - Type in the test strings listed above and click **Run Inputs** to see the green **Accept** and red **Reject** labels on screen.\n";
+  document.getElementById('content').innerHTML = marked.parse(rawMd);
+</script>
+</body>
+</html>
