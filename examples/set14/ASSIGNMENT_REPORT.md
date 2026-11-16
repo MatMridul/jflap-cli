@@ -19,7 +19,7 @@
 | **1** | Answer all four questions using JFLAP ($4 \times 5 = 20$ marks). | Complete solutions provided for Q1 (CFG), Q2 (PDA), Q3 (PDA), and Q4 (TM). | **COMPLIANT** |
 | **2** | Construct required CFG, PDA, or TM and demonstrate execution in JFLAP. | JFLAP 7.1 XML (`.jff`) models constructed, validated, and executed via JFLAP engine. | **COMPLIANT** |
 | **3** | Test at least three accepted and three rejected strings for language recognition. | Tested between 8 and 14 strings (at least 4 accepted and 4 rejected) for every question. | **COMPLIANT** |
-| **4** | Submit JFLAP `.jff` files and execution evidence (simulation traces). | Standalone `.jff` files packaged in submission ZIP; detailed step-by-step traces included. | **COMPLIANT** |
+| **4** | Submit JFLAP `.jff` files and execution evidence (screenshots & simulation traces). | Standalone `.jff` files packaged in ZIP; full canvas screenshots & Multiple Run test tables embedded. | **COMPLIANT** |
 | **5** | $\epsilon$ denotes empty string; $n, m$ follow bounds specified. | $\epsilon$ / $\lambda$ conventions strictly verified; boundary cases ($w=\epsilon$, zero counts) tested. | **COMPLIANT** |
 
 ---
@@ -28,12 +28,12 @@
 
 All models have been created, inspected, and verified against JFLAP 7.1:
 
-| Question (Set 14) | Topic | Model Type | Submission File | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Q1 (U3)** | $\{w w^R \mid w \in \{0, 1\}^*\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) |  Verified |
-| **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) |  Verified |
-| **Q3 (U4)** | Equal $a$'s and $b$'s in arbitrary order | PDA | [`q3_pda_equal_ab.jff`](./q3_pda_equal_ab.jff) |  Verified |
-| **Q4 (U5)** | Deciding $\{w w \mid w \in \{0, 1\}^*\}$ | Turing Machine | [`q4_tm_ww.jff`](./q4_tm_ww.jff) |  Verified |
+| Question (Set 14) | Topic | Model Type | Submission File | Visual Evidence / Screenshots | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Q1 (U3)** | $\{w w^R \mid w \in \{0, 1\}^*\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) | [Grammar Editor](./q1_cfg_wwR_jflap_canvas.png) \| [Multiple Run](./q1_cfg_wwR_jflap_multirun.png) |  Verified |
+| **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) | [Transition Graph](./q2_pda_brackets_jflap_canvas.png) \| [Multiple Run](./q2_pda_brackets_jflap_multirun.png) |  Verified |
+| **Q3 (U4)** | Equal $a$'s and $b$'s in arbitrary order | PDA | [`q3_pda_equal_ab.jff`](./q3_pda_equal_ab.jff) | [Transition Graph](./q3_pda_equal_ab_jflap_canvas.png) \| [Multiple Run](./q3_pda_equal_ab_jflap_multirun.png) |  Verified |
+| **Q4 (U5)** | Deciding $\{w w \mid w \in \{0, 1\}^*\}$ | Turing Machine | [`q4_tm_ww.jff`](./q4_tm_ww.jff) | [TM State Graph](./q4_tm_ww_jflap_canvas.png) \| [Multiple Run](./q4_tm_ww_jflap_multirun.png) |  Verified |
 
 ---
 
@@ -74,7 +74,17 @@ S &\implies 1 S 1 && \text{(Rule 2: } S \to 1S1\text{)} \\
 Yield of Tree: 1 · 0 · λ · 0 · 1 = 1001
 ```
 
-### 5. JFLAP Grammar Parser Execution Evidence
+### 5. JFLAP Visual Screenshots & Execution Evidence
+
+#### A. JFLAP Grammar Editor Window
+![JFLAP Grammar Editor - Question 1](./q1_cfg_wwR_jflap_canvas.png)
+*Figure 1.1: JFLAP 7.1 Grammar Editor showing production rules $S \to 0S0$, $S \to 1S1$, and $S \to \lambda$.*
+
+#### B. JFLAP Multiple Run Simulation Table
+![JFLAP Multiple Run - Question 1](./q1_cfg_wwR_jflap_multirun.png)
+*Figure 1.2: JFLAP 7.1 Multiple Run showing parsing verdicts for target `1001` along with accepted and rejected test cases.*
+
+### 6. JFLAP Grammar Parser Execution Evidence
 ```text
 ================================================================================
 JFLAP 7.1 Grammar Parser Execution Trace
@@ -90,7 +100,7 @@ Derivation Trace:
 ================================================================================
 ```
 
-### 6. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
+### 7. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
 
 | Input String | Type / Category | Expected | JFLAP Parser Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -148,7 +158,17 @@ A PDA is defined as a 7-tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, Z_0, F)$:
 | **5** | `q1` | $\epsilon$ (empty) | `[Z]` | Read `)`, matches top `(` $\implies$ pop `(` |
 | **6** | `q2` | $\epsilon$ (empty) | `[Z]` | $\delta(q_1, \lambda, Z) \to (q_2, Z)$ **[ACCEPTED in Final State]** |
 
-### 5. JFLAP Simulator Console Output
+### 5. JFLAP Visual Screenshots & Execution Evidence
+
+#### A. JFLAP PDA Transition Graph
+![JFLAP PDA Graph - Question 2](./q2_pda_brackets_jflap_canvas.png)
+*Figure 2.1: JFLAP 7.1 PDA state transition diagram for nested bracket validation.*
+
+#### B. JFLAP Multiple Run Simulation Table
+![JFLAP Multiple Run - Question 2](./q2_pda_brackets_jflap_multirun.png)
+*Figure 2.2: JFLAP 7.1 Multiple Run verification showing green Accept and red Reject status labels.*
+
+### 6. JFLAP Simulator Console Output
 ```text
 ================================================================================
 Execution Trace for Input: '([])' on q2_pda_brackets.jff [PDA Acceptance: final_state]
@@ -166,7 +186,7 @@ Step | State | Remaining Input | Stack | Accept?
 ================================================================================
 ```
 
-### 6. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
+### 7. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
 
 | Input String | Description / Category | Expected | JFLAP PDA Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -224,7 +244,17 @@ A PDA is defined as a 7-tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, Z_0, F)$:
 | **5** | `q1` | $\epsilon$ (empty) | `[Z]` | Read `b`, matches top `a` $\implies$ pop `a` (balanced) |
 | **6** | `q2` | $\epsilon$ (empty) | `[Z]` | $\delta(q_1, \lambda, Z) \to (q_2, Z)$ **[ACCEPTED in Final State]** |
 
-### 5. JFLAP Simulator Console Output
+### 5. JFLAP Visual Screenshots & Execution Evidence
+
+#### A. JFLAP PDA Transition Graph
+![JFLAP PDA Graph - Question 3](./q3_pda_equal_ab_jflap_canvas.png)
+*Figure 3.1: JFLAP 7.1 PDA state transition diagram for equal numbers of $a$'s and $b$'s.*
+
+#### B. JFLAP Multiple Run Simulation Table
+![JFLAP Multiple Run - Question 3](./q3_pda_equal_ab_jflap_multirun.png)
+*Figure 3.2: JFLAP 7.1 Multiple Run verification for arbitrary order $a$'s and $b$'s.*
+
+### 6. JFLAP Simulator Console Output
 ```text
 ================================================================================
 Execution Trace for Input: 'baab' on q3_pda_equal_ab.jff [PDA Acceptance: final_state]
@@ -242,7 +272,7 @@ Step | State | Remaining Input | Stack | Accept?
 ================================================================================
 ```
 
-### 6. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
+### 7. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
 
 | Input String | Counts ($N_a, N_b$) | Expected | JFLAP PDA Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -313,7 +343,17 @@ A deterministic 1-tape Turing Machine $M = (Q, \Sigma, \Gamma, \delta, q_0, \squ
 | **26–36** | `q8` (`q_match_1`) | Match 2nd symbol `1` with midpoint symbol `B` $\implies$ mark both `Y` | `[?XYXY?]` | |
 | **37** | `q12` (`q_accept`) | Hits blank $\square$ with all symbols verified | `[?XYXY??]` | **ACCEPTED** |
 
-### 5. JFLAP Simulator Console Output
+### 5. JFLAP Visual Screenshots & Execution Evidence
+
+#### A. JFLAP Turing Machine Transition Graph
+![JFLAP TM Graph - Question 4](./q4_tm_ww_jflap_canvas.png)
+*Figure 4.1: JFLAP 7.1 Turing Machine architecture showing states $q_0$ through $q_{12}$ for language $w w$.*
+
+#### B. JFLAP Multiple Run Simulation Table
+![JFLAP Multiple Run - Question 4](./q4_tm_ww_jflap_multirun.png)
+*Figure 4.2: JFLAP 7.1 Multiple Run verification for deciding non-context-free language $\{w w \mid w \in \{0, 1\}^*\}$.*
+
+### 6. JFLAP Simulator Console Output
 ```text
 ================================================================================
 Execution Trace for Input: '0101' on q4_tm_ww.jff
@@ -332,7 +372,7 @@ Key Transition Sequence:
 ================================================================================
 ```
 
-### 6. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
+### 7. Test Suite Execution Evidence (Meets Criterion 3: $\ge 3$ Accepted, $\ge 3$ Rejected)
 
 | Input String | Length | $w$ | Expected | JFLAP TM Result | Final Tape | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
