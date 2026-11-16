@@ -1,12 +1,11 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <structure>
 	<type>pda</type>
 	<automaton>
-		<!--The list of states.-->
+		
 		<state id="0" name="q0">
 			<x>100.0</x>
 			<y>180.0</y>
-			<initial/>
+			<initial />
 		</state>
 		<state id="1" name="q1">
 			<x>280.0</x>
@@ -15,27 +14,18 @@
 		<state id="2" name="q2">
 			<x>460.0</x>
 			<y>180.0</y>
-			<final/>
+			<final />
 		</state>
-		<!--The list of transitions.-->
-		<!-- Start transition -->
+		
+		
 		<transition>
 			<from>0</from>
 			<to>1</to>
-			<read/>
+			<read />
 			<pop>Z</pop>
 			<push>Z</push>
 		</transition>
-		<!-- Empty string acceptance -->
-		<transition>
-			<from>0</from>
-			<to>2</to>
-			<read/>
-			<pop>Z</pop>
-			<push>Z</push>
-		</transition>
-
-		<!-- When top is Z (balanced) -->
+		
 		<transition>
 			<from>1</from>
 			<to>1</to>
@@ -51,7 +41,7 @@
 			<push>bZ</push>
 		</transition>
 
-		<!-- When top is a (excess of a) -->
+		
 		<transition>
 			<from>1</from>
 			<to>1</to>
@@ -64,10 +54,10 @@
 			<to>1</to>
 			<read>b</read>
 			<pop>a</pop>
-			<push/>
+			<push />
 		</transition>
 
-		<!-- When top is b (excess of b) -->
+		
 		<transition>
 			<from>1</from>
 			<to>1</to>
@@ -80,14 +70,14 @@
 			<to>1</to>
 			<read>a</read>
 			<pop>b</pop>
-			<push/>
+			<push />
 		</transition>
 
-		<!-- Acceptance when balanced -->
+		
 		<transition>
 			<from>1</from>
 			<to>2</to>
-			<read/>
+			<read />
 			<pop>Z</pop>
 			<push>Z</push>
 		</transition>
