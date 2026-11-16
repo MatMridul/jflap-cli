@@ -30,10 +30,10 @@ All models have been created, inspected, and verified against JFLAP 7.1:
 
 | Question (Set 14) | Topic | Model Type | Submission File | Visual Evidence / Screenshots | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Q1 (U3)** | $\{w w^R \mid w \in \{0, 1\}^*\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) | [Grammar Editor](./q1_cfg_wwR_jflap_canvas.png) \| [Multiple Run](./q1_cfg_wwR_jflap_multirun.png) |  Verified |
-| **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) | [Transition Graph](./q2_pda_brackets_jflap_canvas.png) \| [Multiple Run](./q2_pda_brackets_jflap_multirun.png) |  Verified |
-| **Q3 (U4)** | Equal $a$'s and $b$'s in arbitrary order | PDA | [`q3_pda_equal_ab.jff`](./q3_pda_equal_ab.jff) | [Transition Graph](./q3_pda_equal_ab_jflap_canvas.png) \| [Multiple Run](./q3_pda_equal_ab_jflap_multirun.png) |  Verified |
-| **Q4 (U5)** | Deciding $\{w w \mid w \in \{0, 1\}^*\}$ | Turing Machine | [`q4_tm_ww.jff`](./q4_tm_ww.jff) | [TM State Graph](./q4_tm_ww_jflap_canvas.png) \| [Multiple Run](./q4_tm_ww_jflap_multirun.png) |  Verified |
+| **Q1 (U3)** | $\{w w^R \mid w \in \{0, 1\}^*\}$, parse `1001` | CFG | [`q1_cfg_wwR.jff`](./q1_cfg_wwR.jff) | [Grammar Editor](./screenshots/q1_cfg_wwR_jflap_canvas.png) \| [Multiple Run](./screenshots/q1_cfg_wwR_jflap_multirun.png) |  Verified |
+| **Q2 (U4)** | Nested `()`, `[]`, `{}` Brackets | PDA | [`q2_pda_brackets.jff`](./q2_pda_brackets.jff) | [Transition Graph](./screenshots/q2_pda_brackets_jflap_canvas.png) \| [Multiple Run](./screenshots/q2_pda_brackets_jflap_multirun.png) |  Verified |
+| **Q3 (U4)** | Equal $a$'s and $b$'s in arbitrary order | PDA | [`q3_pda_equal_ab.jff`](./q3_pda_equal_ab.jff) | [Transition Graph](./screenshots/q3_pda_equal_ab_jflap_canvas.png) \| [Multiple Run](./screenshots/q3_pda_equal_ab_jflap_multirun.png) |  Verified |
+| **Q4 (U5)** | Deciding $\{w w \mid w \in \{0, 1\}^*\}$ | Turing Machine | [`q4_tm_ww.jff`](./q4_tm_ww.jff) | [TM State Graph](./screenshots/q4_tm_ww_jflap_canvas.png) \| [Multiple Run](./screenshots/q4_tm_ww_jflap_multirun.png) |  Verified |
 
 ---
 
@@ -77,11 +77,11 @@ Yield of Tree: 1 · 0 · λ · 0 · 1 = 1001
 ### 5. JFLAP Visual Screenshots & Execution Evidence
 
 #### A. JFLAP Grammar Editor Window
-![JFLAP Grammar Editor - Question 1](./q1_cfg_wwR_jflap_canvas.png)
+![JFLAP Grammar Editor - Question 1](./screenshots/q1_cfg_wwR_jflap_canvas.png)
 *Figure 1.1: JFLAP 7.1 Grammar Editor showing production rules $S \to 0S0$, $S \to 1S1$, and $S \to \lambda$.*
 
 #### B. JFLAP Multiple Run Simulation Table
-![JFLAP Multiple Run - Question 1](./q1_cfg_wwR_jflap_multirun.png)
+![JFLAP Multiple Run - Question 1](./screenshots/q1_cfg_wwR_jflap_multirun.png)
 *Figure 1.2: JFLAP 7.1 Multiple Run showing parsing verdicts for target `1001` along with accepted and rejected test cases.*
 
 ### 6. JFLAP Grammar Parser Execution Evidence
@@ -161,11 +161,11 @@ A PDA is defined as a 7-tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, Z_0, F)$:
 ### 5. JFLAP Visual Screenshots & Execution Evidence
 
 #### A. JFLAP PDA Transition Graph
-![JFLAP PDA Graph - Question 2](./q2_pda_brackets_jflap_canvas.png)
+![JFLAP PDA Graph - Question 2](./screenshots/q2_pda_brackets_jflap_canvas.png)
 *Figure 2.1: JFLAP 7.1 PDA state transition diagram for nested bracket validation.*
 
 #### B. JFLAP Multiple Run Simulation Table
-![JFLAP Multiple Run - Question 2](./q2_pda_brackets_jflap_multirun.png)
+![JFLAP Multiple Run - Question 2](./screenshots/q2_pda_brackets_jflap_multirun.png)
 *Figure 2.2: JFLAP 7.1 Multiple Run verification showing green Accept and red Reject status labels.*
 
 ### 6. JFLAP Simulator Console Output
@@ -247,11 +247,11 @@ A PDA is defined as a 7-tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, Z_0, F)$:
 ### 5. JFLAP Visual Screenshots & Execution Evidence
 
 #### A. JFLAP PDA Transition Graph
-![JFLAP PDA Graph - Question 3](./q3_pda_equal_ab_jflap_canvas.png)
+![JFLAP PDA Graph - Question 3](./screenshots/q3_pda_equal_ab_jflap_canvas.png)
 *Figure 3.1: JFLAP 7.1 PDA state transition diagram for equal numbers of $a$'s and $b$'s.*
 
 #### B. JFLAP Multiple Run Simulation Table
-![JFLAP Multiple Run - Question 3](./q3_pda_equal_ab_jflap_multirun.png)
+![JFLAP Multiple Run - Question 3](./screenshots/q3_pda_equal_ab_jflap_multirun.png)
 *Figure 3.2: JFLAP 7.1 Multiple Run verification for arbitrary order $a$'s and $b$'s.*
 
 ### 6. JFLAP Simulator Console Output
@@ -346,11 +346,11 @@ A deterministic 1-tape Turing Machine $M = (Q, \Sigma, \Gamma, \delta, q_0, \squ
 ### 5. JFLAP Visual Screenshots & Execution Evidence
 
 #### A. JFLAP Turing Machine Transition Graph
-![JFLAP TM Graph - Question 4](./q4_tm_ww_jflap_canvas.png)
+![JFLAP TM Graph - Question 4](./screenshots/q4_tm_ww_jflap_canvas.png)
 *Figure 4.1: JFLAP 7.1 Turing Machine architecture showing states $q_0$ through $q_{12}$ for language $w w$.*
 
 #### B. JFLAP Multiple Run Simulation Table
-![JFLAP Multiple Run - Question 4](./q4_tm_ww_jflap_multirun.png)
+![JFLAP Multiple Run - Question 4](./screenshots/q4_tm_ww_jflap_multirun.png)
 *Figure 4.2: JFLAP 7.1 Multiple Run verification for deciding non-context-free language $\{w w \mid w \in \{0, 1\}^*\}$.*
 
 ### 6. JFLAP Simulator Console Output
